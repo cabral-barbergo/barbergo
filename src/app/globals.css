@@ -3,25 +3,59 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --gold: #c8a97e;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-syne), system-ui, sans-serif;
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .font-syne { font-family: var(--font-syne), system-ui, sans-serif; }
+  .font-inter { font-family: var(--font-inter), system-ui, sans-serif; }
+
+  .diagonal-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(239, 68, 68, 0.15) 4px,
+      rgba(239, 68, 68, 0.15) 8px
+    );
   }
+
+  .gold-glow {
+    box-shadow: 0 0 0 1px #c8a97e, 0 0 16px rgba(200, 169, 126, 0.25);
+  }
+
+  .text-balance { text-wrap: balance; }
 }
+
+/* Supress Google Autocomplete dropdown ugly border */
+.pac-container {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  margin-top: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.pac-item {
+  color: #ededed;
+  border-top: 1px solid #2a2a2a;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.pac-item:hover, .pac-item-selected {
+  background: #2a2a2a;
+}
+.pac-item-query { color: #c8a97e; }
+.pac-matched { color: #c8a97e; font-weight: 600; }
+.hdpi .pac-icon, .pac-icon { display: none; }
