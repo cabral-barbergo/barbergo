@@ -61,7 +61,7 @@ export default function RouteMap({ bookings }: Props) {
       // Create or reuse map
       if (!mapRef.current) {
         mapRef.current = new Map(divRef.current, {
-          center: { lat: -34.6037, lng: -58.3816 },
+          center: { lat: -34.6519, lng: -59.4307 },
           zoom: 12,
           mapTypeControl: false,
           streetViewControl: false,
