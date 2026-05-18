@@ -106,7 +106,7 @@ export function canJoinDay(
 
 export function isSlotAdjacent(slot: string, existingBookings: Booking[], allSlots: string[]): boolean {
   const takenIndices = existingBookings
-    .map((b) => allSlots.indexOf(b.slot))
+    .map((b) => allSlots.indexOf(b.slot.substring(0, 5)))
     .filter((i) => i !== -1)
 
   const slotIdx = allSlots.indexOf(slot)
@@ -123,15 +123,27 @@ export function getAvailableSlotsForDay(
   allSlots: string[]
 ): AvailabilitySlot[] {
   const dayBookings = bookings.filter((b) => b.date === date && b.status !== 'cancelled')
-  const takenSlots = new Set(dayBookings.map((b) => b.slot))
+  const takenSlots = new Set(dayBookings.map((b) => b.slot.substring(0, 5)))
   const joinResult = canJoinDay(dayBookings, lat, lon)
 
+  console.log(
+    `[getAvailableSlotsForDay] date=${date} bookings=${dayBookings.length} taken=[${[...takenSlots].join(',')}] geo=${joinResult.ok ? 'ok' : joinResult.reason}`
+  )
+
   return allSlots.map((slot) => {
-    if (takenSlots.has(slot)) return { slot, status: 'taken' }
-    if (!joinResult.ok) return { slot, status: 'blocked' }
-    if (dayBookings.length > 0 && !isSlotAdjacent(slot, dayBookings, allSlots)) {
+    if (takenSlots.has(slot)) {
+      console.log(`[getAvailableSlotsForDay] ${slot} → taken`)
+      return { slot, status: 'taken' }
+    }
+    if (!joinResult.ok) {
+      console.log(`[getAvailableSlotsForDay] ${slot} → blocked (geo: ${joinResult.reason})`)
       return { slot, status: 'blocked' }
     }
+    if (dayBookings.length > 0 && !isSlotAdjacent(slot, dayBookings, allSlots)) {
+      console.log(`[getAvailableSlotsForDay] ${slot} → blocked (not adjacent)`)
+      return { slot, status: 'blocked' }
+    }
+    console.log(`[getAvailableSlotsForDay] ${slot} → available`)
     return { slot, status: 'available' }
   })
 }

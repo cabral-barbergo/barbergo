@@ -209,6 +209,18 @@ describe('getAvailableSlotsForDay', () => {
     expect(slots.every((s) => s.status === 'available')).toBe(true)
   })
 
+  it('marks slot as taken when booking slot has HH:MM:SS format (raw DB value)', () => {
+    const booking = { ...makeBooking('x', palermo.lat, palermo.lon), slot: '10:00:00' }
+    const slots = getAvailableSlotsForDay(
+      [booking],
+      '2026-05-17',
+      palermo.lat,
+      palermo.lon,
+      allSlots
+    )
+    expect(slots.find((s) => s.slot === '10:00')!.status).toBe('taken')
+  })
+
   it('ignores cancelled bookings when evaluating canJoinDay', () => {
     const cancelled = { ...palermo, status: 'cancelled' as const, id: 'c1' }
     const cancelled2 = { ...recoleta, status: 'cancelled' as const, id: 'c2' }

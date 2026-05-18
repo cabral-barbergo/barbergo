@@ -38,7 +38,7 @@ function toBooking(row: BookingRow): Booking {
     id: row.id,
     token: row.token,
     date: row.date,
-    slot: row.slot.substring(0, 5),
+    slot: (row.slot || '').toString().substring(0, 5),
     clientName: row.client_name,
     clientPhone: row.client_phone,
     address: row.address,
@@ -77,7 +77,12 @@ export async function getBookingsByDate(date: string): Promise<Booking[]> {
     .eq('date', date)
     .neq('status', 'cancelled')
   if (error) throw error
-  return (data as BookingRow[]).map(toBooking)
+  const rows = data as BookingRow[]
+  console.log(
+    `[getBookingsByDate] date=${date} rows=${rows.length}`,
+    rows.map((r) => ({ date: r.date, slotRaw: r.slot, slotNorm: (r.slot || '').toString().substring(0, 5), status: r.status }))
+  )
+  return rows.map(toBooking)
 }
 
 export async function getBookingByToken(token: string): Promise<Booking | null> {
