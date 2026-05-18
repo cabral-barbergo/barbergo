@@ -30,7 +30,7 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
   useEffect(() => {
     setLoading(true)
     setError(null)
-    fetch(`/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`)
+    fetch(`/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
         setIsBlocked(data.isBlocked ?? false)

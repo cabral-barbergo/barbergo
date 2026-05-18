@@ -3,6 +3,8 @@ import { getBookingsByDate, getAvailability, getBlockedDays } from '@/lib/db/boo
 import { getAvailableSlotsForDay } from '@/lib/routing'
 import { generateSlots, jsToAppDay } from '@/lib/slots'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')

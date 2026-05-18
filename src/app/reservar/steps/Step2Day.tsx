@@ -42,7 +42,8 @@ export default function Step2Day({ location, onSelect }: Props) {
     days.forEach(async (date) => {
       try {
         const res = await fetch(
-          `/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`
+          `/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`,
+          { cache: 'no-store' }
         )
         const data = await res.json()
         setStatuses((prev) => ({
