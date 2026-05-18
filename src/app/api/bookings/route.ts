@@ -69,11 +69,7 @@ export async function POST(request: Request) {
     // Routing check
     const joinResult = canJoinDay(existing, lat, lon)
     if (!joinResult.ok) {
-      const message =
-        joinResult.reason === 'corridor'
-          ? 'Location is outside the service corridor for this day'
-          : 'Adding this booking would create an excessive detour'
-      return NextResponse.json({ error: message, reason: joinResult.reason }, { status: 409 })
+      return NextResponse.json({ error: 'Location is outside the service area for this day' }, { status: 409 })
     }
 
     // Final atomic-ish check right before insert to narrow the race window
