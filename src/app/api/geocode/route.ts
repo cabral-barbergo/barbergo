@@ -22,12 +22,26 @@ export async function POST(request: Request) {
     `https://maps.googleapis.com/maps/api/geocode/json` +
     `?address=${encodeURIComponent(address)}&key=${apiKey}`
 
+  console.log('[geocode] address input:', address)
+  console.log('[geocode] request URL:', url.replace(apiKey, 'REDACTED'))
+
   let geoData: GoogleGeocodeResponse
   try {
     const res = await fetch(url)
     geoData = await res.json()
-  } catch {
+  } catch (err) {
+    console.error('[geocode] fetch error:', err)
     return NextResponse.json({ error: 'Geocoding service unavailable' }, { status: 502 })
+  }
+
+  console.log('[geocode] status:', geoData.status)
+  console.log('[geocode] results count:', geoData.results?.length ?? 0)
+  if (geoData.results?.length) {
+    console.log('[geocode] first result formatted_address:', geoData.results[0].formatted_address)
+    console.log('[geocode] first result address_components:', JSON.stringify(geoData.results[0].address_components))
+    console.log('[geocode] first result location:', JSON.stringify(geoData.results[0].geometry.location))
+  } else {
+    console.log('[geocode] full response:', JSON.stringify(geoData))
   }
 
   if (geoData.status !== 'OK' || !geoData.results.length) {
@@ -38,6 +52,8 @@ export async function POST(request: Request) {
   const countryComponent = result.address_components.find((c) =>
     c.types.includes('country')
   )
+
+  console.log('[geocode] country component:', JSON.stringify(countryComponent))
 
   if (countryComponent?.short_name !== 'AR') {
     return NextResponse.json(
