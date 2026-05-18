@@ -1,6 +1,13 @@
 import { supabaseAdmin as supabase } from '../supabase'
 import type { Booking, Availability, BlockedDay } from '../types'
 
+export class SlotConflictError extends Error {
+  constructor() {
+    super('Este horario ya no está disponible')
+    this.name = 'SlotConflictError'
+  }
+}
+
 // Row types as returned by Supabase (snake_case)
 type BookingRow = {
   id: string
@@ -52,6 +59,17 @@ function toAvailability(row: AvailabilityRow): Availability {
   }
 }
 
+export async function isSlotTaken(date: string, slot: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('date', date)
+    .eq('slot', slot)
+    .neq('status', 'cancelled')
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
 export async function getBookingsByDate(date: string): Promise<Booking[]> {
   const { data, error } = await supabase
     .from('bookings')
@@ -92,7 +110,11 @@ export async function createBooking(
     })
     .select()
     .single()
-  if (error) throw error
+  if (error) {
+    // 23505 = unique_violation — DB-level guarantee catches races the app check misses
+    if (error.code === '23505') throw new SlotConflictError()
+    throw error
+  }
   return toBooking(row as BookingRow)
 }
 

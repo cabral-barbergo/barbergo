@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { getBookingsByDate, createBooking, getAvailability, getBlockedDays } from '@/lib/db/bookings'
+import { getBookingsByDate, createBooking, isSlotTaken, getAvailability, getBlockedDays, SlotConflictError } from '@/lib/db/bookings'
 import { canJoinDay } from '@/lib/routing'
 import { generateSlots, jsToAppDay } from '@/lib/slots'
 import { notifyBookingCreated } from '@/lib/notify'
@@ -61,9 +61,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid slot for this day' }, { status: 400 })
     }
 
-    // Race condition check: slot taken
+    // Early slot check (fast path)
     if (existing.some((b) => b.slot === slot)) {
-      return NextResponse.json({ error: 'Slot is no longer available' }, { status: 409 })
+      return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
     // Routing check
@@ -74,6 +74,11 @@ export async function POST(request: Request) {
           ? 'Location is outside the service corridor for this day'
           : 'Adding this booking would create an excessive detour'
       return NextResponse.json({ error: message, reason: joinResult.reason }, { status: 409 })
+    }
+
+    // Final atomic-ish check right before insert to narrow the race window
+    if (await isSlotTaken(date, slot)) {
+      return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
     const booking = await createBooking({
@@ -94,6 +99,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(booking, { status: 201 })
   } catch (err) {
+    if (err instanceof SlotConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 })
+    }
     console.error('[bookings POST]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
