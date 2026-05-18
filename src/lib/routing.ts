@@ -125,6 +125,17 @@ export function canJoinDay(
   return { ok: true }
 }
 
+export function isSlotAdjacent(slot: string, existingBookings: Booking[], allSlots: string[]): boolean {
+  const takenIndices = existingBookings
+    .map((b) => allSlots.indexOf(b.slot))
+    .filter((i) => i !== -1)
+
+  const slotIdx = allSlots.indexOf(slot)
+  if (slotIdx === -1) return false
+
+  return takenIndices.some((i) => slotIdx === i - 1 || slotIdx === i + 1)
+}
+
 export function getAvailableSlotsForDay(
   bookings: Booking[],
   date: string,
@@ -139,6 +150,9 @@ export function getAvailableSlotsForDay(
   return allSlots.map((slot) => {
     if (takenSlots.has(slot)) return { slot, status: 'taken' }
     if (!joinResult.ok) return { slot, status: 'blocked' }
+    if (dayBookings.length > 0 && !isSlotAdjacent(slot, dayBookings, allSlots)) {
+      return { slot, status: 'blocked' }
+    }
     return { slot, status: 'available' }
   })
 }
