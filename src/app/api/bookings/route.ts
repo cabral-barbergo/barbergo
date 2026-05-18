@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { getBookingsByDate, createBooking, getAvailability, getBlockedDays } from '@/lib/db/bookings'
 import { canJoinDay } from '@/lib/routing'
 import { generateSlots, jsToAppDay } from '@/lib/slots'
@@ -86,10 +87,10 @@ export async function POST(request: Request) {
       serviceId,
     })
 
-    // Fire-and-forget notification — failure must not affect the response
-    notifyBookingCreated(booking).catch((err) =>
+    // Keep function alive after response so Twilio call completes
+    waitUntil(notifyBookingCreated(booking).catch((err) =>
       console.error('[notify] booking created:', err)
-    )
+    ))
 
     return NextResponse.json(booking, { status: 201 })
   } catch (err) {
