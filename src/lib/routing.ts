@@ -40,28 +40,7 @@ export function distanceToSegment(point: LatLon, segmentA: LatLon, segmentB: Lat
 }
 
 export function optimizeRoute(bookings: Booking[]): Booking[] {
-  if (bookings.length <= 1) return [...bookings]
-
-  const unvisited = [...bookings]
-  const route: Booking[] = [unvisited.shift()!]
-
-  while (unvisited.length > 0) {
-    const last = route[route.length - 1]
-    let nearestIdx = 0
-    let nearestDist = Infinity
-
-    for (let i = 0; i < unvisited.length; i++) {
-      const d = haversine(last.lat, last.lon, unvisited[i].lat, unvisited[i].lon)
-      if (d < nearestDist) {
-        nearestDist = d
-        nearestIdx = i
-      }
-    }
-
-    route.push(unvisited.splice(nearestIdx, 1)[0])
-  }
-
-  return route
+  return [...bookings].sort((a, b) => a.slot.localeCompare(b.slot))
 }
 
 export function routeTotalDistance(bookings: Booking[]): number {

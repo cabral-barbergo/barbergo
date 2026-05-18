@@ -90,11 +90,12 @@ describe('optimizeRoute', () => {
     expect(optimizeRoute([])).toHaveLength(0)
   })
 
-  it('returns a valid permutation of the input bookings', () => {
-    const input = [palermo, sanTelmo, recoleta, belgrano]
-    const optimized = optimizeRoute(input)
-    expect(optimized).toHaveLength(input.length)
-    expect(optimized.map((b) => b.id).sort()).toEqual(input.map((b) => b.id).sort())
+  it('sorts bookings by slot ascending', () => {
+    const a = makeBooking('a', -34.585, -58.43, '12:00')
+    const b = makeBooking('b', -34.588, -58.393, '09:00')
+    const c = makeBooking('c', -34.562, -58.455, '10:30')
+    const result = optimizeRoute([a, b, c])
+    expect(result.map((x) => x.slot)).toEqual(['09:00', '10:30', '12:00'])
   })
 })
 
