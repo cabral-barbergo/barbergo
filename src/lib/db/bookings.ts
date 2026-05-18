@@ -38,7 +38,7 @@ function toBooking(row: BookingRow): Booking {
     id: row.id,
     token: row.token,
     date: row.date,
-    slot: row.slot,
+    slot: row.slot.substring(0, 5),
     clientName: row.client_name,
     clientPhone: row.client_phone,
     address: row.address,
