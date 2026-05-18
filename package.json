@@ -13,6 +13,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",
     "@supabase/supabase-js": "^2.105.4",
+    "@vercel/functions": "^3.6.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.16.0",
