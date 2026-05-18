@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   haversine,
-  distanceToSegment,
   optimizeRoute,
   routeTotalDistance,
   canJoinDay,
@@ -54,30 +53,6 @@ describe('haversine', () => {
   })
 })
 
-describe('distanceToSegment', () => {
-  it('returns distance to nearest endpoint when projection falls outside segment', () => {
-    // Point is before A on the line, so closest point is A
-    const point = { lat: 0, lon: -1 }
-    const a = { lat: 0, lon: 0 }
-    const b = { lat: 0, lon: 1 }
-    const dToA = haversine(0, -1, 0, 0)
-    expect(distanceToSegment(point, a, b)).toBeCloseTo(dToA, 4)
-  })
-
-  it('returns 0 when point is on the segment', () => {
-    const point = { lat: 0, lon: 0.5 }
-    const a = { lat: 0, lon: 0 }
-    const b = { lat: 0, lon: 1 }
-    expect(distanceToSegment(point, a, b)).toBeCloseTo(0, 4)
-  })
-
-  it('returns distance to degenerate segment (point)', () => {
-    const p = { lat: -34.585, lon: -58.43 }
-    const a = { lat: -34.588, lon: -58.393 }
-    const expected = haversine(p.lat, p.lon, a.lat, a.lon)
-    expect(distanceToSegment(p, a, a)).toBeCloseTo(expected, 4)
-  })
-})
 
 describe('optimizeRoute', () => {
   it('returns same single booking', () => {
@@ -114,47 +89,29 @@ describe('routeTotalDistance', () => {
 })
 
 describe('canJoinDay', () => {
-  it('always ok when day is empty', () => {
-    expect(canJoinDay([], -34.585, -58.43)).toEqual({ ok: true })
+  // palermo: -34.585, -58.43
+  // A point ~300m away from palermo
+  const nearPalermo = { lat: -34.5875, lon: -58.43 }
+  // A point ~5km away from palermo (Recoleta is ~3km, Belgrano ~7km)
+  const farFromAll = { lat: -34.62, lon: -58.37 } // san telmo area
+
+  it('ok when day is empty', () => {
+    expect(canJoinDay([], nearPalermo.lat, nearPalermo.lon)).toEqual({ ok: true })
   })
 
-  it('always ok when day has 1 booking', () => {
-    expect(canJoinDay([palermo], -34.621, -58.37)).toEqual({ ok: true })
+  it('ok when within 600m of an existing booking', () => {
+    expect(canJoinDay([palermo], nearPalermo.lat, nearPalermo.lon)).toEqual({ ok: true })
   })
 
-  it('ok for client inside the corridor (close to route segment)', () => {
-    // Palermo → Recoleta route; a point slightly off the midpoint should be within 3 km
-    const midLat = (palermo.lat + recoleta.lat) / 2
-    const midLon = (palermo.lon + recoleta.lon) / 2
-    // Offset by ~0.005 degrees (~500m) perpendicular
-    const result = canJoinDay([palermo, recoleta], midLat + 0.005, midLon)
+  it('blocked when more than 600m from all existing bookings', () => {
+    expect(canJoinDay([palermo], farFromAll.lat, farFromAll.lon)).toEqual({ ok: false })
+  })
+
+  it('ok when within 600m of at least one booking among many', () => {
+    // farFromAll is near sanTelmo; add a sanTelmo booking so distance passes
+    const stBooking = makeBooking('st2', sanTelmo.lat, sanTelmo.lon, '11:00')
+    const result = canJoinDay([palermo, stBooking], farFromAll.lat, farFromAll.lon)
     expect(result.ok).toBe(true)
-  })
-
-  it('rejects client far outside the corridor', () => {
-    // San Telmo is far south-east of the Palermo–Belgrano route
-    const result = canJoinDay([palermo, belgrano], sanTelmo.lat, sanTelmo.lon)
-    expect(result.ok).toBe(false)
-    expect(result.reason).toBe('corridor')
-  })
-
-  it('rejects client that causes excessive detour even if corridor check could pass alone', () => {
-    // Construct a scenario where the new point is geometrically close to the route
-    // but forces a big detour because of route topology.
-    // Use palermo → recoleta (short route). Add villa devoto (far west) which
-    // is > 40% more distance.
-    const baseDistance = routeTotalDistance([palermo, recoleta])
-    const extended = routeTotalDistance([
-      palermo,
-      recoleta,
-      makeBooking('vd2', -34.6, -58.52),
-    ])
-    // Verify the detour actually exceeds 40% (sanity check for the test setup)
-    expect(extended).toBeGreaterThan(baseDistance * 1.4)
-
-    const result = canJoinDay([palermo, recoleta], -34.6, -58.52)
-    // Should fail (corridor or detour)
-    expect(result.ok).toBe(false)
   })
 })
 
@@ -166,8 +123,10 @@ describe('getAvailableSlotsForDay', () => {
     expect(slots.every((s) => s.status === 'available')).toBe(true)
   })
 
-  it('marks taken slot correctly', () => {
+  it('marks taken slot correctly and only adjacent slot is available', () => {
     const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00')
+    // allSlots = ['09:00','10:00','11:00','12:00']
+    // booking at index 0 → only index 1 ('10:00') is adjacent
     const slots = getAvailableSlotsForDay(
       [booking],
       '2026-05-17',
@@ -175,9 +134,10 @@ describe('getAvailableSlotsForDay', () => {
       palermo.lon,
       allSlots
     )
-    const nine = slots.find((s) => s.slot === '09:00')!
-    expect(nine.status).toBe('taken')
-    expect(slots.filter((s) => s.status === 'available')).toHaveLength(3)
+    expect(slots.find((s) => s.slot === '09:00')!.status).toBe('taken')
+    expect(slots.find((s) => s.slot === '10:00')!.status).toBe('available')
+    expect(slots.find((s) => s.slot === '11:00')!.status).toBe('blocked')
+    expect(slots.find((s) => s.slot === '12:00')!.status).toBe('blocked')
   })
 
   it('blocks all free slots when canJoinDay fails', () => {
