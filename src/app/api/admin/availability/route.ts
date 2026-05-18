@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized } from '@/lib/adminAuth'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 

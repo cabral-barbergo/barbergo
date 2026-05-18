@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { supabaseAdmin as supabase } from '../supabase'
 import type { Booking, Availability, BlockedDay } from '../types'
 
 // Row types as returned by Supabase (snake_case)
