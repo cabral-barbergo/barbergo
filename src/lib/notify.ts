@@ -39,7 +39,25 @@ function toWA(phone: string): string {
 async function send(to: string, body: string): Promise<void> {
   const from = fromNumber()
   console.log(`[notify] sending to=${to} from=${from}`)
-  await twilioClient().messages.create({ from, to, body })
+  const msg = await twilioClient().messages.create({ from, to, body })
+  console.log(`[notify] message sent sid=${msg.sid} to=${to} status=${msg.status}`)
+}
+
+function logResults(label: string, tos: string[], results: PromiseSettledResult<void>[]): void {
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      // success already logged inside send()
+    } else {
+      const err = r.reason as Record<string, unknown>
+      console.error(
+        `[notify] ${label} message[${i}] failed to=${tos[i]}`,
+        `error=${err?.message ?? err}`,
+        `status=${err?.status ?? ''}`,
+        `code=${err?.code ?? ''}`,
+        `moreInfo=${err?.moreInfo ?? ''}`
+      )
+    }
+  })
 }
 
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
@@ -72,15 +90,12 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
 
   console.log(`[notify] notifyBookingCreated client=${clientTo} barber=${barberTo}`)
 
-  const tasks: Promise<void>[] = [send(clientTo, clientMsg)]
-  if (barberTo) tasks.push(send(barberTo, barberMsg))
+  const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
+  const tasks = barberTo
+    ? [send(clientTo, clientMsg), send(barberTo, barberMsg)]
+    : [send(clientTo, clientMsg)]
 
-  const results = await Promise.allSettled(tasks)
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      console.error(`[notify] notifyBookingCreated message[${i}] failed:`, r.reason)
-    }
-  })
+  logResults('notifyBookingCreated', tos, await Promise.allSettled(tasks))
 }
 
 export async function notifyBookingCancelled(booking: Booking): Promise<void> {
@@ -102,13 +117,10 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
     barberTo = ''
   }
 
-  const tasks: Promise<void>[] = [send(clientTo, clientMsg)]
-  if (barberTo) tasks.push(send(barberTo, barberMsg))
+  const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
+  const tasks = barberTo
+    ? [send(clientTo, clientMsg), send(barberTo, barberMsg)]
+    : [send(clientTo, clientMsg)]
 
-  const results = await Promise.allSettled(tasks)
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      console.error(`[notify] notifyBookingCancelled message[${i}] failed:`, r.reason)
-    }
-  })
+  logResults('notifyBookingCancelled', tos, await Promise.allSettled(tasks))
 }
