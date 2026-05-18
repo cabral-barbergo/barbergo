@@ -30,6 +30,9 @@ export async function GET(request: Request) {
       getBookingsByDate(date),
     ])
 
+    console.log(`[availability] date=${date} lat=${lat} lon=${lon}`)
+    console.log(`[availability] bookings from DB (${bookings.length}):`, JSON.stringify(bookings.map(b => ({ date: b.date, slot: b.slot, status: b.status }))))
+
     const blocked = blockedDays.find((b) => b.date === date)
     if (blocked) {
       return NextResponse.json({
@@ -48,6 +51,8 @@ export async function GET(request: Request) {
 
     const allSlots = generateSlots(dayConfig.startTime, dayConfig.endTime)
     const slots = getAvailableSlotsForDay(bookings, date, lat, lon, allSlots)
+
+    console.log(`[availability] slots result:`, JSON.stringify(slots))
 
     return NextResponse.json({ slots, isBlocked: false })
   } catch (err) {
