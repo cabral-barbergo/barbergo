@@ -9,16 +9,20 @@ function twilioClient() {
   return twilio(sid, token)
 }
 
+function withWAPrefix(val: string): string {
+  return val.startsWith('whatsapp:') ? val : `whatsapp:${val}`
+}
+
 function fromNumber(): string {
   const f = process.env.TWILIO_WHATSAPP_FROM
   if (!f) throw new Error('[notify] TWILIO_WHATSAPP_FROM not set')
-  return f
+  return withWAPrefix(f)
 }
 
 function barberNumber(): string {
   const b = process.env.PELUQUERO_PHONE
   if (!b) throw new Error('[notify] PELUQUERO_PHONE not set')
-  return b
+  return withWAPrefix(b)
 }
 
 // Normaliza número argentino → whatsapp:+549XXXXXXXXXX
