@@ -47,7 +47,6 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
   }
 
   const available = slots.filter((s) => s.status === 'available')
-  const blocked   = slots.filter((s) => s.status === 'blocked')
 
   return (
     <div className="space-y-5">
@@ -80,50 +79,18 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
 
       {!loading && !error && !isBlocked && (
         <>
-          {/* Legend */}
-          <div className="flex items-center gap-4 text-xs font-inter text-[#555]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-emerald-900/60 border border-emerald-500/50" />
-              Disponible
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-[#2a2a2a]" />
-              Ocupado
-            </span>
-            {blocked.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded diagonal-stripes border border-red-900/40" />
-                Zona no disponible
-              </span>
-            )}
-          </div>
-
           <div className="grid grid-cols-4 gap-2">
-            {slots.map(({ slot, status }) => {
-              const isAvailable = status === 'available'
-              const isTaken     = status === 'taken'
-              const isZoneBlock = status === 'blocked'
-              const isSelected  = selected === slot
-
+            {available.map(({ slot }) => {
+              const isSelected = selected === slot
               return (
                 <button
                   key={slot}
-                  onClick={() => isAvailable && handleSelect(slot)}
-                  disabled={!isAvailable}
+                  onClick={() => handleSelect(slot)}
                   className={[
-                    'relative rounded-lg px-2 py-2.5 text-sm font-inter font-medium transition-all',
-                    isAvailable && !isSelected
-                      ? 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60 cursor-pointer'
-                      : '',
-                    isAvailable && isSelected
-                      ? 'bg-[#c8a97e] border border-[#c8a97e] text-black gold-glow'
-                      : '',
-                    isTaken
-                      ? 'bg-[#1a1a1a] border border-[#2a2a2a] text-[#333] cursor-not-allowed'
-                      : '',
-                    isZoneBlock
-                      ? 'diagonal-stripes border border-red-900/40 text-red-900/50 cursor-not-allowed'
-                      : '',
+                    'relative rounded-lg px-2 py-2.5 text-sm font-inter font-medium transition-all cursor-pointer',
+                    !isSelected
+                      ? 'bg-emerald-900/40 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60'
+                      : 'bg-[#c8a97e] border border-[#c8a97e] text-black gold-glow',
                   ].join(' ')}
                 >
                   {slot}
