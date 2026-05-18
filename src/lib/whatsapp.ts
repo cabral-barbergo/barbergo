@@ -5,7 +5,7 @@ function client() {
   return twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!)
 }
 
-const FROM = () => `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`
+const FROM = () => process.env.TWILIO_WHATSAPP_FROM!
 
 // Normaliza número argentino a formato whatsapp:+549XXXXXXXXXX
 function toWA(phone: string): string {
@@ -67,7 +67,7 @@ export async function sendCancellationNotice(booking: Booking): Promise<void> {
 }
 
 export async function notifyAdminCancellation(booking: Booking): Promise<void> {
-  const to = `whatsapp:${process.env.PELUQUERO_PHONE}`
+  const to = process.env.PELUQUERO_PHONE!
   const body =
     `❌ Turno cancelado\n\n` +
     `Cliente: ${booking.clientName}\n` +

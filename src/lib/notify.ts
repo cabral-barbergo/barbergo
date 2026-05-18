@@ -5,8 +5,8 @@ function client() {
   return twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!)
 }
 
-const from = () => `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`
-const barber = () => `whatsapp:${process.env.BARBER_PHONE}`
+const from = () => process.env.TWILIO_WHATSAPP_FROM!
+const barber = () => process.env.PELUQUERO_PHONE!
 
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
   await client().messages.create({
