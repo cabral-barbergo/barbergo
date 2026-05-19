@@ -75,6 +75,7 @@ export async function getBookingsByDate(date: string): Promise<Booking[]> {
     .from('bookings')
     .select('*')
     .eq('date', date)
+    .not('status', 'is', null)
     .neq('status', 'cancelled')
   if (error) throw error
   const rows = data as BookingRow[]

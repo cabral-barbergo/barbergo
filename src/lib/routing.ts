@@ -82,21 +82,25 @@ export function getAvailableSlotsForDay(
   activeSlots: string[],
   blockedSlots: string[]
 ): AvailabilitySlot[] {
-  const dayBookings = allBookings.filter((b) => b.date === date && b.status !== 'cancelled')
+  const dayBookings = allBookings.filter(
+    (b) => b.date === date && b.status !== 'cancelled' && b.status != null
+  )
   const takenSlots = new Set(dayBookings.map((b) => b.slot.substring(0, 5)))
   const blockedSet = new Set(blockedSlots.map((s) => s.substring(0, 5)))
+  const freeSlots = activeSlots.filter((s) => !takenSlots.has(s) && !blockedSet.has(s))
+
+  // No bookings → no proximity constraint; return all free slots immediately
+  if (dayBookings.length === 0) {
+    return freeSlots.map((slot) => ({ slot, status: 'available' as const }))
+  }
 
   // Natural blocks from ALL active slots (including taken ones, to preserve block structure)
   const naturalBlocks = groupSlotsIntoBlocks(activeSlots)
 
-  const freeSlots = activeSlots.filter((s) => !takenSlots.has(s) && !blockedSet.has(s))
-
   const result: AvailabilitySlot[] = []
-
   for (const slot of freeSlots) {
     const block = findBlockForSlot(slot, naturalBlocks)
     if (!block) continue
-
     const blockBookings = dayBookings.filter((b) => block.includes(b.slot.substring(0, 5)))
     const { ok } = canJoinBlock(block, blockBookings, slot, lat, lon)
     if (ok) result.push({ slot, status: 'available' })
