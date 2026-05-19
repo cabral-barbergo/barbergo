@@ -101,28 +101,27 @@ export function getAvailableSlotsForDay(
   const dayBookings = allBookings.filter(
     (b) => b.date === date && b.status !== 'cancelled' && b.status != null
   )
+  const takenSet = new Set(dayBookings.map((b) => b.slot.substring(0, 5)))
   const blockedSet = new Set(blockedSlots.map((s) => s.substring(0, 5)))
-
-  // (a) Remove taken and blocked slots — only free slots can be offered
-  const freeSlots = activeSlots
-    .filter((s) => !blockedSet.has(s))
-    .filter((s) => !allBookings.some((b) => b.slot.substring(0, 5) === s && b.status !== 'cancelled'))
 
   // No bookings → no proximity constraint; return all free slots immediately
   if (dayBookings.length === 0) {
+    const freeSlots = activeSlots.filter((s) => !blockedSet.has(s))
     return freeSlots.map((slot) => ({ slot, status: 'available' as const }))
   }
 
-  // (b) Group free slots into blocks and apply adjacency + proximity rule
-  const freeBlocks = groupSlotsIntoBlocks(freeSlots)
+  // Group using full activeSlots so taken slots remain in their blocks,
+  // keeping block boundaries and adjacency detection intact.
+  const blocks = groupSlotsIntoBlocks(activeSlots)
 
   const result: AvailabilitySlot[] = []
-  for (const slot of freeSlots) {
-    const block = findBlockForSlot(slot, freeBlocks)
-    if (!block) continue
+  for (const block of blocks) {
     const blockBookings = dayBookings.filter((b) => block.includes(b.slot.substring(0, 5)))
-    const { ok } = canJoinBlock(block, blockBookings, slot, lat, lon)
-    if (ok) result.push({ slot, status: 'available' })
+    for (const slot of block) {
+      if (takenSet.has(slot) || blockedSet.has(slot)) continue
+      const { ok } = canJoinBlock(block, blockBookings, slot, lat, lon)
+      if (ok) result.push({ slot, status: 'available' })
+    }
   }
 
   return result
