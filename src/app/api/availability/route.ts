@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getBookingsByDate, getActiveSlots, getBlockedSlots, getBlockedDays } from '@/lib/db/bookings'
-import { getAvailableSlotsForDay } from '@/lib/routing'
+import { getBookingsByDate, getActiveSlots, getBlockedSlots, getBlockedDays, getServiceZone } from '@/lib/db/bookings'
+import { getAvailableSlotsForDay, getEffectiveLocation } from '@/lib/routing'
 import { jsToAppDay } from '@/lib/slots'
 
 export const dynamic = 'force-dynamic'
@@ -35,11 +35,12 @@ export async function GET(request: Request) {
   const appDay = jsToAppDay(jsDay)
 
   try {
-    const [activeSlots, blockedSlots, bookings, blockedDays] = await Promise.all([
+    const [activeSlots, blockedSlots, bookings, blockedDays, zone] = await Promise.all([
       getActiveSlots(appDay),
       getBlockedSlots(date),
       getBookingsByDate(date),
       getBlockedDays(),
+      getServiceZone(),
     ])
 
     // Whole-day block check (backward compat with blocked_days table)
@@ -52,10 +53,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [], isBlocked: true, reason: 'Día no disponible' })
     }
 
-    const slots = getAvailableSlotsForDay(bookings, date, lat, lon, activeSlots, blockedSlots)
+    const eff = getEffectiveLocation(lat, lon, zone)
+    const slots = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots)
 
-    console.log('[availability] date=%s lat=%s lon=%s activeSlots=%d bookings=%d result=%d',
-      date, lat, lon, activeSlots.length, bookings.length, slots.length)
+    console.log('[availability] date=%s lat=%s lon=%s isolated=%s effLat=%s effLon=%s activeSlots=%d bookings=%d result=%d',
+      date, lat, lon, eff.isIsolated, eff.lat, eff.lon, activeSlots.length, bookings.length, slots.length)
 
     return NextResponse.json({ slots, isBlocked: false })
   } catch (err) {

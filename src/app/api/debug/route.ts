@@ -1,5 +1,5 @@
-import { getBookingsByDate, getActiveSlots, getBlockedSlots } from '@/lib/db/bookings'
-import { getAvailableSlotsForDay, groupSlotsIntoBlocks } from '@/lib/routing'
+import { getBookingsByDate, getActiveSlots, getBlockedSlots, getServiceZone } from '@/lib/db/bookings'
+import { getAvailableSlotsForDay, groupSlotsIntoBlocks, getEffectiveLocation } from '@/lib/routing'
 import { jsToAppDay } from '@/lib/slots'
 
 export const dynamic = 'force-dynamic'
@@ -14,19 +14,26 @@ export async function GET(request: Request) {
   const jsDay = new Date(`${date}T12:00:00`).getDay()
   const appDay = jsToAppDay(jsDay)
 
-  const [bookings, activeSlots, blockedSlots] = await Promise.all([
+  const [bookings, activeSlots, blockedSlots, zone] = await Promise.all([
     getBookingsByDate(date),
     getActiveSlots(appDay),
     getBlockedSlots(date),
+    getServiceZone(),
   ])
 
+  const eff = getEffectiveLocation(lat, lon, zone)
   const blocks = groupSlotsIntoBlocks(activeSlots)
-  const result = getAvailableSlotsForDay(bookings, date, lat, lon, activeSlots, blockedSlots)
+  const result = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots)
 
   return Response.json({
     date,
-    lat,
-    lon,
+    input: { lat, lon },
+    zone: {
+      centerLat: zone.centerLat,
+      centerLon: zone.centerLon,
+      polygonVertices: zone.polygon.length,
+    },
+    effectiveLocation: eff,
     appDay,
     bookings: bookings.map((b) => ({ slot: b.slot, status: b.status, lat: b.lat, lon: b.lon })),
     activeSlots,

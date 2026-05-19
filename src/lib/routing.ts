@@ -1,4 +1,4 @@
-import type { Booking, AvailabilitySlot, Block } from './types'
+import type { Booking, AvailabilitySlot, Block, ServiceZone } from './types'
 
 const EARTH_RADIUS_KM = 6371
 const PROXIMITY_MAX_KM = 0.6
@@ -88,6 +88,72 @@ export function canJoinBlock(
   const result = withinRange ? { ok: true } : { ok: false, reason: 'distance' as const }
   console.log('[canJoinBlock] result:', result)
   return result
+}
+
+// ── Service zone geometry ────────────────────────────────────────
+
+export function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  const [px, py] = point
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i]
+    const [xj, yj] = polygon[j]
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+export function lineSegmentIntersection(
+  p1: [number, number],
+  p2: [number, number],
+  p3: [number, number],
+  p4: [number, number]
+): [number, number] | null {
+  const [x1, y1] = p1, [x2, y2] = p2, [x3, y3] = p3, [x4, y4] = p4
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+  if (Math.abs(denom) < 1e-10) return null
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+    return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]
+  }
+  return null
+}
+
+export function projectToPolygonBorder(
+  point: [number, number],
+  center: [number, number],
+  polygon: [number, number][]
+): [number, number] {
+  if (isPointInPolygon(point, polygon)) return point
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const intersection = lineSegmentIntersection(point, center, polygon[j], polygon[i])
+    if (intersection) return intersection
+  }
+
+  // Fallback: closest polygon vertex
+  let closest = polygon[0]
+  let minDist = Infinity
+  for (const vertex of polygon) {
+    const d = Math.hypot(vertex[0] - point[0], vertex[1] - point[1])
+    if (d < minDist) { minDist = d; closest = vertex }
+  }
+  return closest
+}
+
+export function getEffectiveLocation(
+  lat: number,
+  lon: number,
+  zone: Pick<ServiceZone, 'centerLat' | 'centerLon' | 'polygon'>
+): { lat: number; lon: number; isIsolated: boolean } {
+  const point: [number, number] = [lat, lon]
+  const center: [number, number] = [zone.centerLat, zone.centerLon]
+  const projected = projectToPolygonBorder(point, center, zone.polygon)
+  const isIsolated = projected[0] !== lat || projected[1] !== lon
+  return { lat: projected[0], lon: projected[1], isIsolated }
 }
 
 export function getAvailableSlotsForDay(

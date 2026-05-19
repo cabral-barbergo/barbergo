@@ -46,3 +46,11 @@ export interface BlockedDay {
   date: string
   reason: string | null
 }
+
+export interface ServiceZone {
+  id: string
+  name: string
+  centerLat: number
+  centerLon: number
+  polygon: [number, number][]
+}

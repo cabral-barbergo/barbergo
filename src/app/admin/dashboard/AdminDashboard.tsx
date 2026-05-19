@@ -6,14 +6,16 @@ import AgendaSection       from './sections/AgendaSection'
 import AvailabilitySection from './sections/AvailabilitySection'
 import BlockedDaysSection  from './sections/BlockedDaysSection'
 import ConfigSection       from './sections/ConfigSection'
+import ZoneSection         from './sections/ZoneSection'
 
-type Tab = 'agenda' | 'disponibilidad' | 'bloqueados' | 'configuracion'
+type Tab = 'agenda' | 'disponibilidad' | 'bloqueados' | 'configuracion' | 'zona'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'agenda',          label: 'Agenda',          icon: '📅' },
-  { id: 'disponibilidad',  label: 'Disponibilidad',  icon: '🕐' },
-  { id: 'bloqueados',      label: 'Días bloqueados',  icon: '🚫' },
-  { id: 'configuracion',   label: 'Configuración',   icon: '⚙️' },
+  { id: 'agenda',          label: 'Agenda',             icon: '📅' },
+  { id: 'disponibilidad',  label: 'Disponibilidad',     icon: '🕐' },
+  { id: 'bloqueados',      label: 'Días bloqueados',    icon: '🚫' },
+  { id: 'configuracion',   label: 'Configuración',      icon: '⚙️' },
+  { id: 'zona',            label: 'Zona de cobertura',  icon: '🗺️' },
 ]
 
 export default function AdminDashboard() {
@@ -73,6 +75,7 @@ export default function AdminDashboard() {
         {tab === 'disponibilidad'  && <AvailabilitySection />}
         {tab === 'bloqueados'      && <BlockedDaysSection />}
         {tab === 'configuracion'   && <ConfigSection />}
+        {tab === 'zona'            && <ZoneSection />}
       </div>
     </div>
   )

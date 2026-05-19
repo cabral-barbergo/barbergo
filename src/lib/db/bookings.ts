@@ -1,5 +1,5 @@
 import { supabaseAdmin as supabase } from '../supabase'
-import type { Booking, Availability, BlockedDay } from '../types'
+import type { Booking, Availability, BlockedDay, ServiceZone } from '../types'
 
 export class SlotConflictError extends Error {
   constructor() {
@@ -229,5 +229,44 @@ export async function unblockSlot(date: string, slot: string): Promise<void> {
     .delete()
     .eq('date', date)
     .eq('slot', slot)
+  if (error) throw error
+}
+
+// ── service_zone (schema v3) ─────────────────────────────────────
+
+type ServiceZoneRow = {
+  id: string
+  name: string
+  center_lat: number
+  center_lon: number
+  polygon: [number, number][]
+  updated_at: string
+}
+
+export async function getServiceZone(): Promise<ServiceZone> {
+  const { data, error } = await supabase
+    .from('service_zone')
+    .select('*')
+    .eq('name', 'main')
+    .single()
+  if (error) throw error
+  const row = data as ServiceZoneRow
+  return {
+    id: row.id,
+    name: row.name,
+    centerLat: row.center_lat,
+    centerLon: row.center_lon,
+    polygon: row.polygon,
+  }
+}
+
+export async function updateServiceZone(
+  center: [number, number],
+  polygon: [number, number][]
+): Promise<void> {
+  const { error } = await supabase
+    .from('service_zone')
+    .update({ center_lat: center[0], center_lon: center[1], polygon, updated_at: new Date().toISOString() })
+    .eq('name', 'main')
   if (error) throw error
 }

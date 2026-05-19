@@ -10,9 +10,10 @@ import {
   getActiveSlots,
   getBlockedSlots,
   getBlockedDays,
+  getServiceZone,
   SlotConflictError,
 } from '@/lib/db/bookings'
-import { groupSlotsIntoBlocks, findBlockForSlot, canJoinBlock } from '@/lib/routing'
+import { groupSlotsIntoBlocks, findBlockForSlot, canJoinBlock, getEffectiveLocation } from '@/lib/routing'
 import { jsToAppDay } from '@/lib/slots'
 import { notifyBookingCreated } from '@/lib/notify'
 
@@ -54,11 +55,12 @@ export async function POST(request: Request) {
   const appDay = jsToAppDay(jsDay)
 
   try {
-    const [blockedDays, activeSlots, blockedSlots, existing] = await Promise.all([
+    const [blockedDays, activeSlots, blockedSlots, existing, zone] = await Promise.all([
       getBlockedDays(),
       getActiveSlots(appDay),
       getBlockedSlots(date),
       getBookingsByDate(date),
+      getServiceZone(),
     ])
 
     // Whole-day block check
@@ -81,14 +83,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
-    // Block-based proximity + adjacency check
+    // Block-based proximity + adjacency check (use effective location for proximity)
+    const eff = getEffectiveLocation(lat, lon, zone)
     const naturalBlocks = groupSlotsIntoBlocks(activeSlots)
     const block = findBlockForSlot(slot, naturalBlocks)
     if (!block) {
       return NextResponse.json({ error: 'Horario inválido' }, { status: 400 })
     }
     const blockBookings = existing.filter((b) => block.includes(b.slot.substring(0, 5)))
-    const joinResult = canJoinBlock(block, blockBookings, slot, lat, lon)
+    const joinResult = canJoinBlock(block, blockBookings, slot, eff.lat, eff.lon)
     if (!joinResult.ok) {
       const msg =
         joinResult.reason === 'distance'
