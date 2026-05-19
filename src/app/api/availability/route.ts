@@ -51,13 +51,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ slots: [], isBlocked: true, reason: 'Día no disponible' })
     }
 
-    console.log(`[availability] activeSlots: ${activeSlots.length} slots → [${activeSlots.join(', ')}]`)
-    console.log(`[availability] blockedSlots: ${blockedSlots.length} slots → [${blockedSlots.join(', ')}]`)
-    console.log(`[availability] bookings: ${bookings.length} → [${bookings.map((b) => `${b.slot}@${b.lat},${b.lon}`).join(', ')}]`)
-
     const slots = getAvailableSlotsForDay(bookings, date, lat, lon, activeSlots, blockedSlots)
 
-    console.log(`[availability] result: ${slots.length} slots available → [${slots.map((s) => s.slot).join(', ')}]`)
+    console.log('[availability] date=%s lat=%s lon=%s activeSlots=%d bookings=%d result=%d',
+      date, lat, lon, activeSlots.length, bookings.length, slots.length)
 
     return NextResponse.json({ slots, isBlocked: false })
   } catch (err) {

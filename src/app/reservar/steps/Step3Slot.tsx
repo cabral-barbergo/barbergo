@@ -40,6 +40,8 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
     setIsBlocked(false)
     setSelected(null)
 
+    console.log('[Step3Slot] fetching', date, location.lat, location.lon)
+
     fetch(`/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`, {
       cache: 'no-store',
       signal: controller.signal,
