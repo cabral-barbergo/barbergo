@@ -30,10 +30,8 @@ const PROXIMITY_MAX_KM = 0.6
 export function canJoinDay(
   existingBookings: Booking[],
   newLat: number,
-  newLon: number,
-  allSlots: string[] = []
+  newLon: number
 ): { ok: boolean } {
-  void allSlots
   if (existingBookings.length === 0) return { ok: true }
 
   const withinRange = existingBookings.some(
@@ -62,10 +60,10 @@ export function getAvailableSlotsForDay(
 ): AvailabilitySlot[] {
   const dayBookings = bookings.filter((b) => b.date === date && b.status !== 'cancelled')
   const takenSlots = new Set(dayBookings.map((b) => b.slot.substring(0, 5)))
-  const joinResult = canJoinDay(dayBookings, lat, lon, allSlots)
+  const joinResult = canJoinDay(dayBookings, lat, lon)
 
   console.log(
-    `[getAvailableSlotsForDay] date=${date} bookings=${dayBookings.length} taken=[${[...takenSlots].join(',')}] geo=${joinResult.ok ? 'ok' : 'blocked'}`
+    `[getAvailableSlotsForDay] date=${date} bookings=${dayBookings.length} taken=[${Array.from(takenSlots).join(',')}] geo=${joinResult.ok ? 'ok' : 'blocked'}`
   )
 
   return allSlots.map((slot) => {
