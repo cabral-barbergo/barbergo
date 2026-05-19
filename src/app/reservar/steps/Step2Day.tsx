@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LocationData } from './Step1Location'
 
 interface Props {
@@ -36,7 +36,8 @@ function parseDateLabel(iso: string) {
 }
 
 export default function Step2Day({ location, onSelect }: Props) {
-  const days = getNext14Weekdays()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const days = useMemo(() => getNext14Weekdays(), [])
   const [statuses, setStatuses] = useState<Record<string, DayStatus>>(() =>
     Object.fromEntries(days.map((d) => [d, { loading: true, available: 0 }]))
   )
@@ -63,8 +64,7 @@ export default function Step2Day({ location, onSelect }: Props) {
         }))
       }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.lat, location.lon])
+  }, [days, location.lat, location.lon])
 
   // Only show days that are loading or have available slots
   const visibleDays = days.filter((date) => {

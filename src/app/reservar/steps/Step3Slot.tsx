@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LocationData } from './Step1Location'
 import type { AvailabilitySlot } from '@/lib/types'
 
@@ -27,26 +27,41 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
 
+  const abortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setError(null)
-    fetch(`/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`, { cache: 'no-store' })
+    setSlots([])
+    setIsBlocked(false)
+    setSelected(null)
+
+    fetch(`/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then((r) => r.json())
       .then((data) => {
         setIsBlocked(data.isBlocked ?? false)
         setBlockReason(data.reason)
         setSlots(data.slots ?? [])
       })
-      .catch(() => setError('Error al cargar los horarios'))
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError('Error al cargar los horarios')
+      })
       .finally(() => setLoading(false))
+
+    return () => controller.abort()
   }, [date, location.lat, location.lon])
 
   function handleSelect(slot: string) {
     setSelected(slot)
     onSelect(slot)
   }
-
-  const available = slots
 
   return (
     <div className="space-y-5">
@@ -80,7 +95,7 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
       {!loading && !error && !isBlocked && (
         <>
           <div className="grid grid-cols-4 gap-2">
-            {available.map(({ slot }) => {
+            {slots.map(({ slot }) => {
               const isSelected = selected === slot
               return (
                 <button
@@ -99,7 +114,7 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
             })}
           </div>
 
-          {available.length === 0 && (
+          {slots.length === 0 && (
             <p className="text-center text-[#666] text-sm font-inter py-4">
               No hay horarios disponibles para tu zona en este día.
             </p>
