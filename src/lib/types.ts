@@ -22,8 +22,10 @@ export interface Service {
 
 export interface AvailabilitySlot {
   slot: string
-  status: 'available' | 'taken' | 'blocked'
+  status: 'available'
 }
+
+export type Block = string[]
 
 export interface DayAvailability {
   date: string

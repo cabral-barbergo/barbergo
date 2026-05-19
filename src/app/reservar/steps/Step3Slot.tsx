@@ -46,7 +46,7 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
     onSelect(slot)
   }
 
-  const available = slots.filter((s) => s.status === 'available')
+  const available = slots
 
   return (
     <div className="space-y-5">

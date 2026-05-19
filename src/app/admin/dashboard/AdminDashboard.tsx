@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import AgendaSection       from './sections/AgendaSection'
 import AvailabilitySection from './sections/AvailabilitySection'
 import BlockedDaysSection  from './sections/BlockedDaysSection'
+import ConfigSection       from './sections/ConfigSection'
 
-type Tab = 'agenda' | 'disponibilidad' | 'bloqueados'
+type Tab = 'agenda' | 'disponibilidad' | 'bloqueados' | 'configuracion'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'agenda',          label: 'Agenda',         icon: '📅' },
-  { id: 'disponibilidad',  label: 'Disponibilidad', icon: '🕐' },
-  { id: 'bloqueados',      label: 'Días bloqueados', icon: '🚫' },
+  { id: 'agenda',          label: 'Agenda',          icon: '📅' },
+  { id: 'disponibilidad',  label: 'Disponibilidad',  icon: '🕐' },
+  { id: 'bloqueados',      label: 'Días bloqueados',  icon: '🚫' },
+  { id: 'configuracion',   label: 'Configuración',   icon: '⚙️' },
 ]
 
 export default function AdminDashboard() {
@@ -67,9 +69,10 @@ export default function AdminDashboard() {
 
       {/* Content */}
       <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full">
-        {tab === 'agenda'         && <AgendaSection />}
-        {tab === 'disponibilidad' && <AvailabilitySection />}
-        {tab === 'bloqueados'     && <BlockedDaysSection />}
+        {tab === 'agenda'          && <AgendaSection />}
+        {tab === 'disponibilidad'  && <AvailabilitySection />}
+        {tab === 'bloqueados'      && <BlockedDaysSection />}
+        {tab === 'configuracion'   && <ConfigSection />}
       </div>
     </div>
   )

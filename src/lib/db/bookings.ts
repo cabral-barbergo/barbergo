@@ -164,3 +164,69 @@ export async function unblockDay(date: string): Promise<void> {
     .eq('date', date)
   if (error) throw error
 }
+
+// ── availability_slots (new schema v2) ────────────────────────
+
+export async function getActiveSlots(dayOfWeek: number): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('availability_slots')
+    .select('slot')
+    .eq('day_of_week', dayOfWeek)
+    .eq('is_active', true)
+    .order('slot')
+  if (error) throw error
+  return (data as { slot: string }[]).map((r) => (r.slot || '').toString().substring(0, 5))
+}
+
+export async function getAllSlotsForDay(dayOfWeek: number): Promise<{ slot: string; isActive: boolean }[]> {
+  const { data, error } = await supabase
+    .from('availability_slots')
+    .select('slot, is_active')
+    .eq('day_of_week', dayOfWeek)
+    .order('slot')
+  if (error) throw error
+  return (data as { slot: string; is_active: boolean }[]).map((r) => ({
+    slot: (r.slot || '').toString().substring(0, 5),
+    isActive: r.is_active,
+  }))
+}
+
+export async function toggleAvailabilitySlot(
+  dayOfWeek: number,
+  slot: string,
+  isActive: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('availability_slots')
+    .update({ is_active: isActive })
+    .eq('day_of_week', dayOfWeek)
+    .eq('slot', slot)
+  if (error) throw error
+}
+
+// ── blocked_slots (new schema v2) ────────────────────────────
+
+export async function getBlockedSlots(date: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('blocked_slots')
+    .select('slot')
+    .eq('date', date)
+  if (error) throw error
+  return (data as { slot: string }[]).map((r) => (r.slot || '').toString().substring(0, 5))
+}
+
+export async function blockSlot(date: string, slot: string, reason?: string): Promise<void> {
+  const { error } = await supabase
+    .from('blocked_slots')
+    .insert({ date, slot, reason: reason ?? null })
+  if (error) throw error
+}
+
+export async function unblockSlot(date: string, slot: string): Promise<void> {
+  const { error } = await supabase
+    .from('blocked_slots')
+    .delete()
+    .eq('date', date)
+    .eq('slot', slot)
+  if (error) throw error
+}

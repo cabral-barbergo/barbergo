@@ -1,6 +1,7 @@
-import type { Booking, AvailabilitySlot } from './types'
+import type { Booking, AvailabilitySlot, Block } from './types'
 
 const EARTH_RADIUS_KM = 6371
+const PROXIMITY_MAX_KM = 0.6
 
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180
@@ -25,61 +26,81 @@ export function routeTotalDistance(bookings: Booking[]): number {
   return total
 }
 
-const PROXIMITY_MAX_KM = 0.6
-
-export function canJoinDay(
-  existingBookings: Booking[],
-  newLat: number,
-  newLon: number
-): { ok: boolean } {
-  if (existingBookings.length === 0) return { ok: true }
-
-  const withinRange = existingBookings.some(
-    (b) => haversine(newLat, newLon, b.lat, b.lon) <= PROXIMITY_MAX_KM
-  )
-  return { ok: withinRange }
+function slotToMins(slot: string): number {
+  const [h, m] = slot.split(':').map(Number)
+  return h * 60 + m
 }
 
-export function isSlotAdjacent(slot: string, existingBookings: Booking[], allSlots: string[]): boolean {
-  const takenIndices = existingBookings
-    .map((b) => allSlots.indexOf(b.slot.substring(0, 5)))
-    .filter((i) => i !== -1)
+export function groupSlotsIntoBlocks(slots: string[]): Block[] {
+  if (slots.length === 0) return []
+  const sorted = [...slots].sort((a, b) => slotToMins(a) - slotToMins(b))
+  const blocks: Block[] = [[sorted[0]]]
+  for (let i = 1; i < sorted.length; i++) {
+    if (slotToMins(sorted[i]) - slotToMins(sorted[i - 1]) === 30) {
+      blocks[blocks.length - 1].push(sorted[i])
+    } else {
+      blocks.push([sorted[i]])
+    }
+  }
+  return blocks
+}
 
-  const slotIdx = allSlots.indexOf(slot)
-  if (slotIdx === -1) return false
+export function findBlockForSlot(slot: string, blocks: Block[]): Block | null {
+  return blocks.find((b) => b.includes(slot)) ?? null
+}
 
-  return takenIndices.some((i) => slotIdx === i - 1 || slotIdx === i + 1)
+export function canJoinBlock(
+  blockSlots: Block,
+  blockBookings: Booking[],
+  newSlot: string,
+  newLat: number,
+  newLon: number
+): { ok: boolean; reason?: 'not_adjacent' | 'distance' } {
+  if (blockBookings.length === 0) return { ok: true }
+
+  const newSlotIdx = blockSlots.indexOf(newSlot)
+  if (newSlotIdx === -1) return { ok: false, reason: 'not_adjacent' }
+
+  const adjacentBookings = blockBookings.filter((b) => {
+    const bIdx = blockSlots.indexOf(b.slot.substring(0, 5))
+    return bIdx === newSlotIdx - 1 || bIdx === newSlotIdx + 1
+  })
+
+  if (adjacentBookings.length === 0) return { ok: false, reason: 'not_adjacent' }
+
+  const withinRange = adjacentBookings.some(
+    (b) => haversine(newLat, newLon, b.lat, b.lon) <= PROXIMITY_MAX_KM
+  )
+  return withinRange ? { ok: true } : { ok: false, reason: 'distance' }
 }
 
 export function getAvailableSlotsForDay(
-  bookings: Booking[],
+  allBookings: Booking[],
   date: string,
   lat: number,
   lon: number,
-  allSlots: string[]
+  activeSlots: string[],
+  blockedSlots: string[]
 ): AvailabilitySlot[] {
-  const dayBookings = bookings.filter((b) => b.date === date && b.status !== 'cancelled')
+  const dayBookings = allBookings.filter((b) => b.date === date && b.status !== 'cancelled')
   const takenSlots = new Set(dayBookings.map((b) => b.slot.substring(0, 5)))
-  const joinResult = canJoinDay(dayBookings, lat, lon)
+  const blockedSet = new Set(blockedSlots.map((s) => s.substring(0, 5)))
 
-  console.log(
-    `[getAvailableSlotsForDay] date=${date} bookings=${dayBookings.length} taken=[${Array.from(takenSlots).join(',')}] geo=${joinResult.ok ? 'ok' : 'blocked'}`
-  )
+  // Natural blocks from ALL active slots (including taken ones, to preserve block structure)
+  const naturalBlocks = groupSlotsIntoBlocks(activeSlots)
 
-  return allSlots.map((slot) => {
-    if (takenSlots.has(slot)) {
-      console.log(`[getAvailableSlotsForDay] ${slot} → taken`)
-      return { slot, status: 'taken' }
-    }
-    if (!joinResult.ok) {
-      console.log(`[getAvailableSlotsForDay] ${slot} → blocked (proximity)`)
-      return { slot, status: 'blocked' }
-    }
-    if (dayBookings.length > 0 && !isSlotAdjacent(slot, dayBookings, allSlots)) {
-      console.log(`[getAvailableSlotsForDay] ${slot} → blocked (not adjacent)`)
-      return { slot, status: 'blocked' }
-    }
-    console.log(`[getAvailableSlotsForDay] ${slot} → available`)
-    return { slot, status: 'available' }
-  })
+  const freeSlots = activeSlots.filter((s) => !takenSlots.has(s) && !blockedSet.has(s))
+
+  const result: AvailabilitySlot[] = []
+
+  for (const slot of freeSlots) {
+    const block = findBlockForSlot(slot, naturalBlocks)
+    if (!block) continue
+
+    const blockBookings = dayBookings.filter((b) => block.includes(b.slot.substring(0, 5)))
+    const { ok } = canJoinBlock(block, blockBookings, slot, lat, lon)
+    if (ok) result.push({ slot, status: 'available' })
+  }
+
+  return result
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getBookingsByDate, getAvailability, getBlockedDays } from '@/lib/db/bookings'
+import { getBookingsByDate, getActiveSlots, getBlockedSlots, getBlockedDays } from '@/lib/db/bookings'
 import { getAvailableSlotsForDay } from '@/lib/routing'
-import { generateSlots, jsToAppDay } from '@/lib/slots'
+import { jsToAppDay } from '@/lib/slots'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,36 +25,35 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'lat and lon must be numbers' }, { status: 400 })
   }
 
+  const jsDay = new Date(`${date}T12:00:00`).getDay()
+  // Weekends (0=Sun, 6=Sat) have no slots
+  if (jsDay === 0 || jsDay === 6) {
+    return NextResponse.json({ slots: [], isBlocked: false })
+  }
+
+  const appDay = jsToAppDay(jsDay)
+
   try {
-    const [blockedDays, availability, bookings] = await Promise.all([
-      getBlockedDays(),
-      getAvailability(),
+    const [activeSlots, blockedSlots, bookings, blockedDays] = await Promise.all([
+      getActiveSlots(appDay),
+      getBlockedSlots(date),
       getBookingsByDate(date),
+      getBlockedDays(),
     ])
 
-    console.log(`[availability] date=${date} lat=${lat} lon=${lon}`)
-    console.log(`[availability] bookings from DB (${bookings.length}):`, JSON.stringify(bookings.map(b => ({ date: b.date, slot: b.slot, status: b.status }))))
-
-    const blocked = blockedDays.find((b) => b.date === date)
-    if (blocked) {
-      return NextResponse.json({
-        slots: [],
-        isBlocked: true,
-        reason: blocked.reason ?? undefined,
-      })
+    // Whole-day block check (backward compat with blocked_days table)
+    const dayBlocked = blockedDays.find((b) => b.date === date)
+    if (dayBlocked) {
+      return NextResponse.json({ slots: [], isBlocked: true, reason: dayBlocked.reason ?? undefined })
     }
 
-    const jsDay = new Date(`${date}T12:00:00`).getDay()
-    const dayConfig = availability.find((a) => a.dayOfWeek === jsToAppDay(jsDay))
-
-    if (!dayConfig) {
+    if (activeSlots.length === 0) {
       return NextResponse.json({ slots: [], isBlocked: true, reason: 'Día no disponible' })
     }
 
-    const allSlots = generateSlots(dayConfig.startTime, dayConfig.endTime)
-    const slots = getAvailableSlotsForDay(bookings, date, lat, lon, allSlots)
+    const slots = getAvailableSlotsForDay(bookings, date, lat, lon, activeSlots, blockedSlots)
 
-    console.log(`[availability] slots result:`, JSON.stringify(slots))
+    console.log(`[availability] date=${date} active=${activeSlots.length} blocked=${blockedSlots.length} bookings=${bookings.length} available=${slots.length}`)
 
     return NextResponse.json({ slots, isBlocked: false })
   } catch (err) {

@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { getBookingsByDate, createBooking, isSlotTaken, getAvailability, getBlockedDays, SlotConflictError } from '@/lib/db/bookings'
-import { canJoinDay } from '@/lib/routing'
-import { generateSlots, jsToAppDay } from '@/lib/slots'
+import {
+  getBookingsByDate,
+  createBooking,
+  isSlotTaken,
+  getActiveSlots,
+  getBlockedSlots,
+  getBlockedDays,
+  SlotConflictError,
+} from '@/lib/db/bookings'
+import { groupSlotsIntoBlocks, findBlockForSlot, canJoinBlock } from '@/lib/routing'
+import { jsToAppDay } from '@/lib/slots'
 import { notifyBookingCreated } from '@/lib/notify'
 
 export async function POST(request: Request) {
@@ -36,62 +44,66 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 })
   }
 
+  const jsDay = new Date(`${date}T12:00:00`).getDay()
+  if (jsDay === 0 || jsDay === 6) {
+    return NextResponse.json({ error: 'No hay turnos disponibles los fines de semana' }, { status: 409 })
+  }
+  const appDay = jsToAppDay(jsDay)
+
   try {
-    const [blockedDays, availability, existing] = await Promise.all([
+    const [blockedDays, activeSlots, blockedSlots, existing] = await Promise.all([
       getBlockedDays(),
-      getAvailability(),
+      getActiveSlots(appDay),
+      getBlockedSlots(date),
       getBookingsByDate(date),
     ])
 
-    // Blocked day check
+    // Whole-day block check
     if (blockedDays.some((b) => b.date === date)) {
-      return NextResponse.json({ error: 'This day is not available' }, { status: 409 })
-    }
-
-    // Day config check
-    const jsDay = new Date(`${date}T12:00:00`).getDay()
-    const dayConfig = availability.find((a) => a.dayOfWeek === jsToAppDay(jsDay))
-    if (!dayConfig) {
-      return NextResponse.json({ error: 'No availability configured for this day' }, { status: 409 })
+      return NextResponse.json({ error: 'Este día no está disponible' }, { status: 409 })
     }
 
     // Slot validity check
-    const allSlots = generateSlots(dayConfig.startTime, dayConfig.endTime)
-    if (!allSlots.includes(slot)) {
-      return NextResponse.json({ error: 'Invalid slot for this day' }, { status: 400 })
+    if (!activeSlots.includes(slot)) {
+      return NextResponse.json({ error: 'Horario inválido para este día' }, { status: 400 })
     }
 
-    // Early slot check (fast path)
+    // Slot blocked check
+    if (blockedSlots.includes(slot)) {
+      return NextResponse.json({ error: 'Este horario no está disponible' }, { status: 409 })
+    }
+
+    // Early duplicate check
     if (existing.some((b) => b.slot === slot)) {
       return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
-    // Routing check
-    const joinResult = canJoinDay(existing, lat, lon)
+    // Block-based proximity + adjacency check
+    const naturalBlocks = groupSlotsIntoBlocks(activeSlots)
+    const block = findBlockForSlot(slot, naturalBlocks)
+    if (!block) {
+      return NextResponse.json({ error: 'Horario inválido' }, { status: 400 })
+    }
+    const blockBookings = existing.filter((b) => block.includes(b.slot.substring(0, 5)))
+    const joinResult = canJoinBlock(block, blockBookings, slot, lat, lon)
     if (!joinResult.ok) {
-      return NextResponse.json({ error: 'Location is outside the service area for this day' }, { status: 409 })
+      const msg =
+        joinResult.reason === 'distance'
+          ? 'Tu ubicación está fuera del área de servicio para este horario'
+          : 'Este horario no es adyacente a los turnos existentes del bloque'
+      return NextResponse.json({ error: msg }, { status: 409 })
     }
 
-    // Final atomic-ish check right before insert to narrow the race window
+    // Final atomic check to narrow race window
     if (await isSlotTaken(date, slot)) {
       return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
-    const booking = await createBooking({
-      date,
-      slot,
-      clientName,
-      clientPhone,
-      address,
-      lat,
-      lon,
-      serviceId,
-    })
+    const booking = await createBooking({ date, slot, clientName, clientPhone, address, lat, lon, serviceId })
 
-    // Keep function alive after response so Twilio call completes
-    waitUntil(notifyBookingCreated(booking).catch((err) =>
-      console.error('[notify] booking created:', err)
-    ))
+    waitUntil(
+      notifyBookingCreated(booking).catch((err) => console.error('[notify] booking created:', err))
+    )
 
     return NextResponse.json(booking, { status: 201 })
   } catch (err) {

@@ -11,19 +11,22 @@ interface Props {
 interface DayStatus {
   loading: boolean
   available: number
-  isBlocked: boolean
-  reason?: string
 }
 
-const DAY_NAMES  = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const DAY_NAMES   = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MONTH_NAMES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
-function getNext14Days(): string[] {
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() + i + 1)
-    return d.toISOString().split('T')[0]
-  })
+function getNext14Weekdays(): string[] {
+  const result: string[] = []
+  const d = new Date()
+  while (result.length < 14) {
+    d.setDate(d.getDate() + 1)
+    const jsDay = d.getDay()
+    if (jsDay !== 0 && jsDay !== 6) {
+      result.push(d.toISOString().split('T')[0])
+    }
+  }
+  return result
 }
 
 function parseDateLabel(iso: string) {
@@ -33,9 +36,9 @@ function parseDateLabel(iso: string) {
 }
 
 export default function Step2Day({ location, onSelect }: Props) {
-  const days = getNext14Days()
+  const days = getNext14Weekdays()
   const [statuses, setStatuses] = useState<Record<string, DayStatus>>(() =>
-    Object.fromEntries(days.map((d) => [d, { loading: true, available: 0, isBlocked: false }]))
+    Object.fromEntries(days.map((d) => [d, { loading: true, available: 0 }]))
   )
 
   useEffect(() => {
@@ -50,20 +53,24 @@ export default function Step2Day({ location, onSelect }: Props) {
           ...prev,
           [date]: {
             loading: false,
-            isBlocked: data.isBlocked ?? true,
-            available: data.slots?.filter((s: { status: string }) => s.status === 'available').length ?? 0,
-            reason: data.reason,
+            available: data.slots?.length ?? 0,
           },
         }))
       } catch {
         setStatuses((prev) => ({
           ...prev,
-          [date]: { loading: false, available: 0, isBlocked: true },
+          [date]: { loading: false, available: 0 },
         }))
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.lat, location.lon])
+
+  // Only show days that are loading or have available slots
+  const visibleDays = days.filter((date) => {
+    const st = statuses[date]
+    return st.loading || st.available > 0
+  })
 
   return (
     <div className="space-y-5">
@@ -72,12 +79,17 @@ export default function Step2Day({ location, onSelect }: Props) {
         <p className="text-[#666] text-sm font-inter">Próximas 2 semanas</p>
       </div>
 
+      {visibleDays.length === 0 && !days.some((d) => statuses[d]?.loading) && (
+        <p className="text-center text-[#555] text-sm font-inter py-4">
+          No hay días disponibles para tu zona en este período.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {days.map((date) => {
+        {visibleDays.map((date) => {
           const st = statuses[date]
           const { day, month, weekday } = parseDateLabel(date)
-
-          const isClickable = !st.loading && !st.isBlocked && st.available > 0
+          const isClickable = !st.loading && st.available > 0
 
           return (
             <button
@@ -104,12 +116,6 @@ export default function Step2Day({ location, onSelect }: Props) {
               <div className="mt-3 h-5 flex items-center">
                 {st.loading ? (
                   <div className="w-12 h-2 bg-[#2a2a2a] rounded animate-pulse" />
-                ) : st.isBlocked ? (
-                  <span className="text-[10px] font-inter text-[#444]">
-                    {st.reason === 'Día no disponible' ? 'No disponible' : 'Bloqueado'}
-                  </span>
-                ) : st.available === 0 ? (
-                  <span className="text-[10px] font-inter text-red-500/70">Tu zona no disponible</span>
                 ) : (
                   <span className="text-[10px] font-inter text-emerald-400">
                     {st.available} {st.available === 1 ? 'horario' : 'horarios'}

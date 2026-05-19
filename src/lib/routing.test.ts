@@ -3,16 +3,18 @@ import {
   haversine,
   optimizeRoute,
   routeTotalDistance,
-  canJoinDay,
+  groupSlotsIntoBlocks,
+  findBlockForSlot,
+  canJoinBlock,
   getAvailableSlotsForDay,
 } from './routing'
 import type { Booking } from './types'
 
-function makeBooking(id: string, lat: number, lon: number, slot = '09:00'): Booking {
+function makeBooking(id: string, lat: number, lon: number, slot = '09:00', date = '2026-05-19'): Booking {
   return {
     id,
     token: id,
-    date: '2026-05-17',
+    date,
     slot,
     clientName: 'Test',
     clientPhone: '1111',
@@ -24,17 +26,13 @@ function makeBooking(id: string, lat: number, lon: number, slot = '09:00'): Book
   }
 }
 
-// Approximate coords in Buenos Aires area
-// Palermo: -34.5850, -58.4300
-// Recoleta: -34.5880, -58.3930
-// Belgrano: -34.5620, -58.4550
-// San Telmo: -34.6210, -58.3700  (far south-east)
-// Villa Devoto: -34.6000, -58.5200 (far west)
+// Buenos Aires area coords
+const palermo  = makeBooking('p',  -34.585, -58.430)
+const recoleta = makeBooking('r',  -34.588, -58.393)
+const sanTelmo  = makeBooking('st', -34.621, -58.370) // ~5 km from palermo
 
-const palermo = makeBooking('p', -34.585, -58.43)
-const recoleta = makeBooking('r', -34.588, -58.393)
-const belgrano = makeBooking('b', -34.562, -58.455)
-const sanTelmo = makeBooking('st', -34.621, -58.37)    // outside corridor
+// A point ~300m from palermo
+const nearPalermo = { lat: -34.5875, lon: -58.430 }
 
 describe('haversine', () => {
   it('returns 0 for identical coordinates', () => {
@@ -42,8 +40,7 @@ describe('haversine', () => {
   })
 
   it('returns ~111 km per degree latitude', () => {
-    const d = haversine(0, 0, 1, 0)
-    expect(d).toBeCloseTo(111.19, 0)
+    expect(haversine(0, 0, 1, 0)).toBeCloseTo(111.19, 0)
   })
 
   it('is symmetric', () => {
@@ -53,12 +50,9 @@ describe('haversine', () => {
   })
 })
 
-
 describe('optimizeRoute', () => {
   it('returns same single booking', () => {
-    const result = optimizeRoute([palermo])
-    expect(result).toHaveLength(1)
-    expect(result[0].id).toBe('p')
+    expect(optimizeRoute([palermo])[0].id).toBe('p')
   })
 
   it('does not change empty array', () => {
@@ -69,18 +63,17 @@ describe('optimizeRoute', () => {
     const a = makeBooking('a', -34.585, -58.43, '12:00')
     const b = makeBooking('b', -34.588, -58.393, '09:00')
     const c = makeBooking('c', -34.562, -58.455, '10:30')
-    const result = optimizeRoute([a, b, c])
-    expect(result.map((x) => x.slot)).toEqual(['09:00', '10:30', '12:00'])
+    expect(optimizeRoute([a, b, c]).map((x) => x.slot)).toEqual(['09:00', '10:30', '12:00'])
   })
 })
 
 describe('routeTotalDistance', () => {
-  it('returns 0 for a single booking', () => {
-    expect(routeTotalDistance([palermo])).toBe(0)
-  })
-
   it('returns 0 for empty list', () => {
     expect(routeTotalDistance([])).toBe(0)
+  })
+
+  it('returns 0 for single booking', () => {
+    expect(routeTotalDistance([palermo])).toBe(0)
   })
 
   it('returns positive distance for two bookings', () => {
@@ -88,110 +81,140 @@ describe('routeTotalDistance', () => {
   })
 })
 
-describe('canJoinDay', () => {
-  // palermo: -34.585, -58.43
-  // A point ~300m away from palermo
-  const nearPalermo = { lat: -34.5875, lon: -58.43 }
-  // A point ~5km away from palermo (Recoleta is ~3km, Belgrano ~7km)
-  const farFromAll = { lat: -34.62, lon: -58.37 } // san telmo area
-
-  it('ok when day is empty', () => {
-    expect(canJoinDay([], nearPalermo.lat, nearPalermo.lon)).toEqual({ ok: true })
+describe('groupSlotsIntoBlocks', () => {
+  it('returns empty array for empty input', () => {
+    expect(groupSlotsIntoBlocks([])).toEqual([])
   })
 
-  it('ok when within 600m of an existing booking', () => {
-    expect(canJoinDay([palermo], nearPalermo.lat, nearPalermo.lon)).toEqual({ ok: true })
+  it('groups consecutive slots into one block', () => {
+    const blocks = groupSlotsIntoBlocks(['08:30', '09:00', '09:30'])
+    expect(blocks).toEqual([['08:30', '09:00', '09:30']])
   })
 
-  it('blocked when more than 600m from all existing bookings', () => {
-    expect(canJoinDay([palermo], farFromAll.lat, farFromAll.lon)).toEqual({ ok: false })
+  it('splits non-consecutive slots into separate blocks', () => {
+    const blocks = groupSlotsIntoBlocks(['08:30', '09:00', '14:30', '15:00'])
+    expect(blocks).toEqual([['08:30', '09:00'], ['14:30', '15:00']])
   })
 
-  it('ok when within 600m of at least one booking among many', () => {
-    // farFromAll is near sanTelmo; add a sanTelmo booking so distance passes
-    const stBooking = makeBooking('st2', sanTelmo.lat, sanTelmo.lon, '11:00')
-    const result = canJoinDay([palermo, stBooking], farFromAll.lat, farFromAll.lon)
+  it('handles the example from spec', () => {
+    const input = ['08:30', '09:00', '09:30', '12:00', '14:30', '15:00']
+    const blocks = groupSlotsIntoBlocks(input)
+    expect(blocks).toEqual([['08:30', '09:00', '09:30'], ['12:00'], ['14:30', '15:00']])
+  })
+
+  it('handles unsorted input', () => {
+    const blocks = groupSlotsIntoBlocks(['09:30', '08:30', '09:00'])
+    expect(blocks).toEqual([['08:30', '09:00', '09:30']])
+  })
+})
+
+describe('findBlockForSlot', () => {
+  const blocks = [['08:30', '09:00', '09:30'], ['14:30', '15:00']]
+
+  it('finds the correct block', () => {
+    expect(findBlockForSlot('09:00', blocks)).toEqual(['08:30', '09:00', '09:30'])
+  })
+
+  it('returns null for slot not in any block', () => {
+    expect(findBlockForSlot('12:00', blocks)).toBeNull()
+  })
+})
+
+describe('canJoinBlock', () => {
+  const block = ['08:30', '09:00', '09:30', '10:00']
+
+  it('ok when block has no bookings (first in block)', () => {
+    expect(canJoinBlock(block, [], '09:00', nearPalermo.lat, nearPalermo.lon)).toEqual({ ok: true })
+  })
+
+  it('ok when slot is adjacent to a booking and within 600m', () => {
+    const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00')
+    // 09:30 is adjacent to 09:00 (idx 1 → idx 2)
+    const result = canJoinBlock(block, [booking], '09:30', nearPalermo.lat, nearPalermo.lon)
     expect(result.ok).toBe(true)
+  })
+
+  it('blocked when slot is not adjacent to any booking', () => {
+    const booking = makeBooking('x', palermo.lat, palermo.lon, '08:30')
+    // 10:00 (idx 3) is not adjacent to 08:30 (idx 0)
+    const result = canJoinBlock(block, [booking], '10:00', nearPalermo.lat, nearPalermo.lon)
+    expect(result).toEqual({ ok: false, reason: 'not_adjacent' })
+  })
+
+  it('blocked when adjacent but too far away', () => {
+    const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00')
+    // sanTelmo is ~5km from palermo
+    const result = canJoinBlock(block, [booking], '09:30', sanTelmo.lat, sanTelmo.lon)
+    expect(result).toEqual({ ok: false, reason: 'distance' })
   })
 })
 
 describe('getAvailableSlotsForDay', () => {
-  const allSlots = ['09:00', '10:00', '11:00', '12:00']
+  const DATE = '2026-05-19'
+  const activeSlots = ['08:30', '09:00', '09:30', '14:30', '15:00']
 
-  it('all slots available on empty day', () => {
-    const slots = getAvailableSlotsForDay([], '2026-05-17', palermo.lat, palermo.lon, allSlots)
+  it('returns all active slots when no bookings and no blocks', () => {
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, [])
+    expect(slots.map((s) => s.slot)).toEqual(activeSlots)
     expect(slots.every((s) => s.status === 'available')).toBe(true)
   })
 
-  it('marks taken slot correctly and only adjacent slot is available', () => {
-    const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00')
-    // allSlots = ['09:00','10:00','11:00','12:00']
-    // booking at index 0 → only index 1 ('10:00') is adjacent
-    const slots = getAvailableSlotsForDay(
-      [booking],
-      '2026-05-17',
-      palermo.lat,
-      palermo.lon,
-      allSlots
-    )
-    expect(slots.find((s) => s.slot === '09:00')!.status).toBe('taken')
-    expect(slots.find((s) => s.slot === '10:00')!.status).toBe('available')
-    expect(slots.find((s) => s.slot === '11:00')!.status).toBe('blocked')
-    expect(slots.find((s) => s.slot === '12:00')!.status).toBe('blocked')
+  it('excludes blocked slots', () => {
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, ['09:00'])
+    expect(slots.map((s) => s.slot)).not.toContain('09:00')
+    expect(slots.map((s) => s.slot)).toContain('08:30')
   })
 
-  it('blocks all free slots when canJoinDay fails', () => {
-    // Two existing bookings on different slots; new client far outside corridor
-    const b1 = makeBooking('x1', palermo.lat, palermo.lon, '09:00')
-    const b2 = makeBooking('x2', belgrano.lat, belgrano.lon, '10:00')
-    const slots = getAvailableSlotsForDay(
-      [b1, b2],
-      '2026-05-17',
-      sanTelmo.lat,
-      sanTelmo.lon,
-      allSlots
-    )
-    // Taken slots keep their status; all remaining (free) slots must be blocked
-    const freeSlots = slots.filter((s) => s.status !== 'taken')
-    expect(freeSlots.every((s) => s.status === 'blocked')).toBe(true)
-    expect(freeSlots.length).toBeGreaterThan(0)
+  it('excludes taken slots and only shows adjacent available ones', () => {
+    const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE)
+    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [])
+    const slotNames = slots.map((s) => s.slot)
+    // 09:00 is taken → not returned
+    expect(slotNames).not.toContain('09:00')
+    // 08:30 adjacent to 09:00 (within 600m) → available
+    expect(slotNames).toContain('08:30')
+    // 09:30 adjacent to 09:00 (within 600m) → available
+    expect(slotNames).toContain('09:30')
+    // 14:30 and 15:00 are in a separate block with no bookings → available
+    expect(slotNames).toContain('14:30')
+    expect(slotNames).toContain('15:00')
+  })
+
+  it('hides slots too far from existing booking', () => {
+    const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE)
+    // sanTelmo is far from palermo → adjacent slots fail distance check
+    const slots = getAvailableSlotsForDay([booking], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [])
+    const slotNames = slots.map((s) => s.slot)
+    // 08:30 and 09:30 are adjacent but too far → not available
+    expect(slotNames).not.toContain('08:30')
+    expect(slotNames).not.toContain('09:30')
+    // 14:30 / 15:00 block is empty → still available
+    expect(slotNames).toContain('14:30')
+    expect(slotNames).toContain('15:00')
+  })
+
+  it('ignores cancelled bookings', () => {
+    const cancelled = { ...makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE), status: 'cancelled' as const }
+    const slots = getAvailableSlotsForDay([cancelled], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [])
+    // Cancelled doesn't count → all active slots available
+    expect(slots.map((s) => s.slot)).toEqual(activeSlots)
   })
 
   it('ignores bookings from other dates', () => {
-    const otherDay = { ...palermo, date: '2026-05-18', slot: '09:00', id: 'od' }
-    const slots = getAvailableSlotsForDay(
-      [otherDay],
-      '2026-05-17',
-      palermo.lat,
-      palermo.lon,
-      allSlots
-    )
-    expect(slots.every((s) => s.status === 'available')).toBe(true)
+    const other = makeBooking('x', palermo.lat, palermo.lon, '09:00', '2026-05-20')
+    const slots = getAvailableSlotsForDay([other], DATE, palermo.lat, palermo.lon, activeSlots, [])
+    expect(slots.map((s) => s.slot)).toEqual(activeSlots)
   })
 
-  it('marks slot as taken when booking slot has HH:MM:SS format (raw DB value)', () => {
-    const booking = { ...makeBooking('x', palermo.lat, palermo.lon), slot: '10:00:00' }
-    const slots = getAvailableSlotsForDay(
-      [booking],
-      '2026-05-17',
-      palermo.lat,
-      palermo.lon,
-      allSlots
-    )
-    expect(slots.find((s) => s.slot === '10:00')!.status).toBe('taken')
+  it('normalizes HH:MM:SS slot format from DB', () => {
+    const booking = { ...makeBooking('x', palermo.lat, palermo.lon, '09:00:00', DATE) }
+    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [])
+    // 09:00 should be treated as taken
+    expect(slots.map((s) => s.slot)).not.toContain('09:00')
   })
 
-  it('ignores cancelled bookings when evaluating canJoinDay', () => {
-    const cancelled = { ...palermo, status: 'cancelled' as const, id: 'c1' }
-    const cancelled2 = { ...recoleta, status: 'cancelled' as const, id: 'c2' }
-    // With 2 cancelled bookings, effective count is 0 → always ok
-    const slots = getAvailableSlotsForDay(
-      [cancelled, cancelled2],
-      '2026-05-17',
-      sanTelmo.lat,
-      sanTelmo.lon,
-      allSlots
-    )
-    expect(slots.every((s) => s.status === 'available')).toBe(true)
+  it('returns empty array when no active slots', () => {
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, [], [])
+    expect(slots).toEqual([])
   })
 })
