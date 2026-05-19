@@ -91,7 +91,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Horario inválido' }, { status: 400 })
     }
     const blockBookings = existing.filter((b) => block.includes(b.slot.substring(0, 5)))
-    const joinResult = canJoinBlock(block, blockBookings, slot, eff.lat, eff.lon)
+    const projectedBlockBookings = blockBookings.map((b) => {
+      const bEff = getEffectiveLocation(b.lat, b.lon, zone)
+      return { ...b, lat: bEff.lat, lon: bEff.lon }
+    })
+    const joinResult = canJoinBlock(block, projectedBlockBookings, slot, eff.lat, eff.lon)
     if (!joinResult.ok) {
       const msg =
         joinResult.reason === 'distance'

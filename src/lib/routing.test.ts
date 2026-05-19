@@ -26,6 +26,13 @@ function makeBooking(id: string, lat: number, lon: number, slot = '09:00', date 
   }
 }
 
+// Wide zone that contains all test coordinates — keeps existing test behavior unchanged
+const ZONE_WIDE = {
+  centerLat: -34.6,
+  centerLon: -58.4,
+  polygon: [[-34.5, -58.5], [-34.5, -58.3], [-34.7, -58.3], [-34.7, -58.5]] as [number, number][],
+}
+
 // Buenos Aires area coords
 const palermo  = makeBooking('p',  -34.585, -58.430)
 const recoleta = makeBooking('r',  -34.588, -58.393)
@@ -154,20 +161,20 @@ describe('getAvailableSlotsForDay', () => {
   const activeSlots = ['08:30', '09:00', '09:30', '14:30', '15:00']
 
   it('returns all active slots when no bookings and no blocks', () => {
-    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, [], ZONE_WIDE)
     expect(slots.map((s) => s.slot)).toEqual(activeSlots)
     expect(slots.every((s) => s.status === 'available')).toBe(true)
   })
 
   it('excludes blocked slots', () => {
-    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, ['09:00'])
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, activeSlots, ['09:00'], ZONE_WIDE)
     expect(slots.map((s) => s.slot)).not.toContain('09:00')
     expect(slots.map((s) => s.slot)).toContain('08:30')
   })
 
   it('excludes taken slots and only shows adjacent available ones', () => {
     const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE)
-    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [], ZONE_WIDE)
     const slotNames = slots.map((s) => s.slot)
     // 09:00 is taken → not returned
     expect(slotNames).not.toContain('09:00')
@@ -183,7 +190,7 @@ describe('getAvailableSlotsForDay', () => {
   it('hides slots too far from existing booking', () => {
     const booking = makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE)
     // sanTelmo is far from palermo → adjacent slots fail distance check
-    const slots = getAvailableSlotsForDay([booking], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([booking], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [], ZONE_WIDE)
     const slotNames = slots.map((s) => s.slot)
     // 08:30 and 09:30 are adjacent but too far → not available
     expect(slotNames).not.toContain('08:30')
@@ -195,26 +202,26 @@ describe('getAvailableSlotsForDay', () => {
 
   it('ignores cancelled bookings', () => {
     const cancelled = { ...makeBooking('x', palermo.lat, palermo.lon, '09:00', DATE), status: 'cancelled' as const }
-    const slots = getAvailableSlotsForDay([cancelled], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([cancelled], DATE, sanTelmo.lat, sanTelmo.lon, activeSlots, [], ZONE_WIDE)
     // Cancelled doesn't count → all active slots available
     expect(slots.map((s) => s.slot)).toEqual(activeSlots)
   })
 
   it('ignores bookings from other dates', () => {
     const other = makeBooking('x', palermo.lat, palermo.lon, '09:00', '2026-05-20')
-    const slots = getAvailableSlotsForDay([other], DATE, palermo.lat, palermo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([other], DATE, palermo.lat, palermo.lon, activeSlots, [], ZONE_WIDE)
     expect(slots.map((s) => s.slot)).toEqual(activeSlots)
   })
 
   it('normalizes HH:MM:SS slot format from DB', () => {
     const booking = { ...makeBooking('x', palermo.lat, palermo.lon, '09:00:00', DATE) }
-    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [])
+    const slots = getAvailableSlotsForDay([booking], DATE, nearPalermo.lat, nearPalermo.lon, activeSlots, [], ZONE_WIDE)
     // 09:00 should be treated as taken
     expect(slots.map((s) => s.slot)).not.toContain('09:00')
   })
 
   it('returns empty array when no active slots', () => {
-    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, [], [])
+    const slots = getAvailableSlotsForDay([], DATE, palermo.lat, palermo.lon, [], [], ZONE_WIDE)
     expect(slots).toEqual([])
   })
 })

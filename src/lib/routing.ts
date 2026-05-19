@@ -162,7 +162,8 @@ export function getAvailableSlotsForDay(
   lat: number,
   lon: number,
   activeSlots: string[],
-  blockedSlots: string[]
+  blockedSlots: string[],
+  zone: Pick<ServiceZone, 'centerLat' | 'centerLon' | 'polygon'>
 ): AvailabilitySlot[] {
   const dayBookings = allBookings.filter(
     (b) => b.date === date && b.status !== 'cancelled' && b.status != null
@@ -183,9 +184,14 @@ export function getAvailableSlotsForDay(
   const result: AvailabilitySlot[] = []
   for (const block of blocks) {
     const blockBookings = dayBookings.filter((b) => block.includes((b.slot || '').toString().substring(0, 5)))
+    // Project existing bookings' coords so rural clients compare from their polygon border
+    const projectedBlockBookings = blockBookings.map((b) => {
+      const eff = getEffectiveLocation(b.lat, b.lon, zone)
+      return { ...b, lat: eff.lat, lon: eff.lon }
+    })
     for (const slot of block) {
       if (takenSet.has(slot) || blockedSet.has(slot)) continue
-      const { ok } = canJoinBlock(block, blockBookings, slot, lat, lon)
+      const { ok } = canJoinBlock(block, projectedBlockBookings, slot, lat, lon)
       if (ok) result.push({ slot, status: 'available' })
     }
   }

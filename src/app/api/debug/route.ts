@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const eff = getEffectiveLocation(lat, lon, zone)
   const blocks = groupSlotsIntoBlocks(activeSlots)
-  const result = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots)
+  const result = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots, zone)
 
   return Response.json({
     date,
