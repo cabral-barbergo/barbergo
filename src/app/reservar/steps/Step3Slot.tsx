@@ -46,6 +46,8 @@ export default function Step3Slot({ date, location, onSelect }: Props) {
     })
       .then((r) => r.json())
       .then((data) => {
+        console.log('[Step3Slot] API response:', data)
+        console.log('[Step3Slot] slots to display:', data.slots)
         setIsBlocked(data.isBlocked ?? false)
         setBlockReason(data.reason)
         setSlots(data.slots ?? [])
