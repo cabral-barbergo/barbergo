@@ -86,6 +86,40 @@ export async function getBookingsByDate(date: string): Promise<Booking[]> {
   return rows.map(toBooking)
 }
 
+export async function getBookingById(id: string): Promise<Booking | null> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+  return toBooking(data as BookingRow)
+}
+
+export async function updateBookingById(
+  id: string,
+  updates: { clientName?: string; address?: string; lat?: number; lon?: number }
+): Promise<void> {
+  const dbUpdates: Record<string, unknown> = {}
+  if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName
+  if (updates.address   !== undefined) dbUpdates.address      = updates.address
+  if (updates.lat       !== undefined) dbUpdates.lat          = updates.lat
+  if (updates.lon       !== undefined) dbUpdates.lon          = updates.lon
+  const { error } = await supabase.from('bookings').update(dbUpdates).eq('id', id)
+  if (error) throw error
+}
+
+export async function cancelBookingById(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function getBookingByToken(token: string): Promise<Booking | null> {
   const { data, error } = await supabase
     .from('bookings')

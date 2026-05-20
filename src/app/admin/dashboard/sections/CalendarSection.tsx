@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Booking } from '@/lib/types'
+import AddressAutocomplete from '../components/AddressAutocomplete'
 
 type CalView = 'day' | 'week' | 'month'
 
@@ -64,7 +65,6 @@ function getVisibleDates(view: CalView, current: Date): string[] {
     const mon = getMonStart(current)
     return Array.from({ length: 5 }, (_, i) => toISO(addDays(mon, i)))
   }
-  // month
   const year = current.getFullYear()
   const month = current.getMonth()
   const dates: string[] = []
@@ -86,44 +86,49 @@ function periodLabel(view: CalView, current: Date): string {
   return `${MONTH_NAMES[current.getMonth()]} ${current.getFullYear()}`
 }
 
-// ── booking modal ─────────────────────────────────────────────────
+// ── geocode helper ────────────────────────────────────────────────
 
-interface ModalProps {
+async function geocodeAddress(address: string): Promise<{ lat: number; lon: number; formattedAddress: string } | null> {
+  try {
+    const res = await fetch('/api/geocode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    })
+    const data = await res.json()
+    if (res.ok && data.lat) return { lat: data.lat, lon: data.lon, formattedAddress: data.formattedAddress }
+  } catch {}
+  return null
+}
+
+// ── add booking modal ─────────────────────────────────────────────
+
+interface AddModalProps {
   date: string
   slot: string
   onClose: () => void
   onBooked: () => void
 }
 
-function BookingModal({ date, slot, onClose, onBooked }: ModalProps) {
-  const [clientName,  setClientName]  = useState('')
-  const [address,     setAddress]     = useState('')
-  const [submitting,  setSubmitting]  = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+function AddModal({ date, slot, onClose, onBooked }: AddModalProps) {
+  const [clientName,   setClientName]   = useState('')
+  const [address,      setAddress]      = useState('')
+  const [freshCoords,  setFreshCoords]  = useState<{ lat: number; lon: number } | null>(null)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
 
   async function handleConfirm() {
     if (!clientName.trim()) { setError('El nombre es requerido'); return }
     setSubmitting(true)
     setError(null)
 
-    let lat = 0, lon = 0, finalAddress = address.trim()
+    let lat = freshCoords?.lat ?? 0
+    let lon = freshCoords?.lon ?? 0
+    let finalAddress = address.trim()
 
-    if (finalAddress) {
-      try {
-        const geoRes = await fetch('/api/geocode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: finalAddress }),
-        })
-        const geoData = await geoRes.json()
-        if (geoRes.ok && geoData.lat && geoData.lon) {
-          lat = geoData.lat
-          lon = geoData.lon
-          finalAddress = geoData.formattedAddress ?? finalAddress
-        }
-      } catch {
-        // geocode failed — keep lat/lon as 0,0
-      }
+    if (finalAddress && !freshCoords) {
+      const geo = await geocodeAddress(finalAddress)
+      if (geo) { lat = geo.lat; lon = geo.lon; finalAddress = geo.formattedAddress }
     }
 
     try {
@@ -133,12 +138,11 @@ function BookingModal({ date, slot, onClose, onBooked }: ModalProps) {
         body: JSON.stringify({ date, slot, clientName: clientName.trim(), address: finalAddress, lat, lon }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Error al crear turno'); return }
+      if (!res.ok) { setError(data.error ?? 'Error al crear turno'); setSubmitting(false); return }
       onBooked()
       onClose()
     } catch {
       setError('Error de red')
-    } finally {
       setSubmitting(false)
     }
   }
@@ -165,10 +169,10 @@ function BookingModal({ date, slot, onClose, onBooked }: ModalProps) {
           </div>
           <div>
             <label className="text-[#888] text-xs font-inter block mb-1">Dirección (opcional)</label>
-            <input
-              type="text"
+            <AddressAutocomplete
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(v) => { setAddress(v); setFreshCoords(null) }}
+              onPlaceSelect={(addr, lat, lon) => { setAddress(addr); setFreshCoords({ lat, lon }) }}
               placeholder="Calle 123, Ciudad"
               className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60"
             />
@@ -198,26 +202,196 @@ function BookingModal({ date, slot, onClose, onBooked }: ModalProps) {
   )
 }
 
+// ── edit booking modal ────────────────────────────────────────────
+
+interface EditModalProps {
+  booking: Booking
+  onClose: () => void
+  onSaved: () => void
+  onDeleted: () => void
+}
+
+function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
+  const [clientName,    setClientName]    = useState(booking.clientName)
+  const [address,       setAddress]       = useState(booking.address || '')
+  const [freshCoords,   setFreshCoords]   = useState<{ lat: number; lon: number } | null>(
+    booking.lat !== 0 && booking.lon !== 0 ? { lat: booking.lat, lon: booking.lon } : null
+  )
+  const [saving,        setSaving]        = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+
+  async function handleSave() {
+    if (!clientName.trim()) { setError('El nombre es requerido'); return }
+    setSaving(true)
+    setError(null)
+
+    let lat = freshCoords?.lat ?? 0
+    let lon = freshCoords?.lon ?? 0
+    let finalAddress = address.trim()
+
+    if (finalAddress && !freshCoords) {
+      const geo = await geocodeAddress(finalAddress)
+      if (geo) { lat = geo.lat; lon = geo.lon; finalAddress = geo.formattedAddress }
+    }
+
+    if (!finalAddress) { lat = 0; lon = 0 }
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientName: clientName.trim(), address: finalAddress, lat, lon }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error ?? 'Error al guardar')
+        setSaving(false)
+        return
+      }
+      onSaved()
+      onClose()
+    } catch {
+      setError('Error de red')
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error ?? 'Error al eliminar')
+        setDeleting(false)
+        return
+      }
+      onDeleted()
+      onClose()
+    } catch {
+      setError('Error de red')
+      setDeleting(false)
+    }
+  }
+
+  const busy = saving || deleting
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-sm space-y-4">
+        <div>
+          <p className="font-syne font-bold text-white text-base">Editar turno</p>
+          <p className="text-[#555] text-xs font-inter mt-0.5">{booking.date} · {booking.slot}</p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[#888] text-xs font-inter block mb-1">Nombre del cliente *</label>
+            <input
+              type="text"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60"
+            />
+          </div>
+          <div>
+            <label className="text-[#888] text-xs font-inter block mb-1">Dirección</label>
+            <AddressAutocomplete
+              value={address}
+              onChange={(v) => { setAddress(v); setFreshCoords(null) }}
+              onPlaceSelect={(addr, lat, lon) => { setAddress(addr); setFreshCoords({ lat, lon }) }}
+              placeholder="Calle 123, Ciudad"
+              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60"
+            />
+          </div>
+        </div>
+
+        {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
+
+        {/* Delete confirm */}
+        {confirmDelete ? (
+          <div className="bg-red-950/30 border border-red-500/30 rounded-lg px-4 py-3 space-y-2">
+            <p className="text-red-400 text-xs font-inter">¿Eliminar este turno?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 text-xs font-inter text-[#888] hover:text-white transition-colors py-1.5"
+              >
+                No, cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold font-syne rounded-lg px-3 py-2 transition-all disabled:opacity-50"
+              >
+                {deleting ? '…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy}
+            className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-inter rounded-lg py-2 transition-all disabled:opacity-50"
+          >
+            Eliminar turno
+          </button>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={busy}
+            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50"
+          >
+            {saving ? '…' : 'Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── slot cell ─────────────────────────────────────────────────────
 
 interface SlotCellProps {
   booking?: Booking
-  onClick?: () => void
+  onAdd?: () => void
+  onEdit?: () => void
   compact?: boolean
 }
 
-function SlotCell({ booking, onClick, compact }: SlotCellProps) {
+function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
   if (booking) {
     return (
-      <div className={`bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg ${compact ? 'px-2 py-1' : 'px-3 py-2'} text-xs font-inter text-[#c8a97e] truncate`}>
+      <button
+        onClick={onEdit}
+        className={[
+          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left text-xs font-inter text-[#c8a97e] truncate transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
+          compact ? 'px-2 py-1' : 'px-3 py-2',
+        ].join(' ')}
+      >
         {booking.clientName}
-      </div>
+      </button>
     )
   }
   return (
     <button
-      onClick={onClick}
-      className={`w-full bg-[#141414] border border-dashed border-[#2a2a2a] rounded-lg ${compact ? 'px-2 py-1' : 'px-3 py-2'} text-xs font-inter text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left`}
+      onClick={onAdd}
+      className={[
+        'w-full bg-[#141414] border border-dashed border-[#2a2a2a] rounded-lg text-xs font-inter text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left',
+        compact ? 'px-2 py-1' : 'px-3 py-2',
+      ].join(' ')}
     >
       +
     </button>
@@ -231,19 +405,18 @@ interface DayViewProps {
   slots: SlotState[]
   bookings: Booking[]
   onAdd: (slot: string) => void
+  onEdit: (booking: Booking) => void
 }
 
-function DayView({ date, slots, bookings, onAdd }: DayViewProps) {
+function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
   const active = slots.filter((s) => s.isActive)
   if (active.length === 0) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin slots activos para este día.</div>
   }
-
   const jsDay = new Date(date + 'T12:00:00').getDay()
   if (jsDay === 0 || jsDay === 6) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
   }
-
   return (
     <div className="space-y-1.5 max-w-sm">
       {active.map((s) => {
@@ -252,7 +425,7 @@ function DayView({ date, slots, bookings, onAdd }: DayViewProps) {
           <div key={s.slot} className="flex items-center gap-3">
             <span className="text-[#444] text-xs font-mono w-11 shrink-0">{s.slot}</span>
             <div className="flex-1">
-              <SlotCell booking={booking} onClick={() => onAdd(s.slot)} />
+              <SlotCell booking={booking} onAdd={() => onAdd(s.slot)} onEdit={() => booking && onEdit(booking)} />
             </div>
           </div>
         )
@@ -264,19 +437,17 @@ function DayView({ date, slots, bookings, onAdd }: DayViewProps) {
 // ── week view ─────────────────────────────────────────────────────
 
 interface WeekViewProps {
-  dates: string[]          // 5 ISO dates, Mon-Fri
+  dates: string[]
   slotsData: DaySlotData[]
   bookingsByDate: Record<string, Booking[]>
   onAdd: (date: string, slot: string) => void
+  onEdit: (booking: Booking) => void
 }
 
-function WeekView({ dates, slotsData, bookingsByDate, onAdd }: WeekViewProps) {
-  // Collect all active slot times across the 5 days
+function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
   const slotSet = new Set<string>()
   for (let i = 0; i < 5; i++) {
-    const dayDow = i  // Mon=0
-    const day    = slotsData.find((d) => d.dayOfWeek === dayDow)
-    day?.slots.filter((s) => s.isActive).forEach((s) => slotSet.add(s.slot))
+    slotsData.find((d) => d.dayOfWeek === i)?.slots.filter((s) => s.isActive).forEach((s) => slotSet.add(s.slot))
   }
   const allTimes = Array.from(slotSet).sort()
 
@@ -306,15 +477,18 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd }: WeekViewProps) {
             <tr key={time} className="border-t border-[#1a1a1a]">
               <td className="text-[#444] text-[10px] font-mono pr-2 py-1 align-middle whitespace-nowrap">{time}</td>
               {dates.map((date, i) => {
-                const dayDow  = i
-                const dayData = slotsData.find((d) => d.dayOfWeek === dayDow)
+                const dayData  = slotsData.find((d) => d.dayOfWeek === i)
                 const isActive = dayData?.slots.find((s) => s.slot === time)?.isActive
                 const booking  = bookingsByDate[date]?.find((b) => b.slot === time)
-
                 return (
                   <td key={date} className="px-1 py-1">
                     {isActive ? (
-                      <SlotCell booking={booking} onClick={() => onAdd(date, time)} compact />
+                      <SlotCell
+                        booking={booking}
+                        onAdd={() => onAdd(date, time)}
+                        onEdit={() => booking && onEdit(booking)}
+                        compact
+                      />
                     ) : (
                       <div className="h-6" />
                     )}
@@ -340,13 +514,9 @@ interface MonthViewProps {
 function MonthView({ current, bookingsByDate, onDayClick }: MonthViewProps) {
   const year  = current.getFullYear()
   const month = current.getMonth()
-
   const firstDay = new Date(year, month, 1)
   const lastDay  = new Date(year, month + 1, 0)
-
-  // Day-of-week index for first cell (Mon-based grid)
   const startOffset = dow(firstDay)
-
   const cells: (Date | null)[] = Array(startOffset).fill(null)
   for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
     cells.push(new Date(d))
@@ -355,23 +525,18 @@ function MonthView({ current, bookingsByDate, onDayClick }: MonthViewProps) {
 
   return (
     <div>
-      {/* Header */}
       <div className="grid grid-cols-7 mb-1">
         {['L','M','X','J','V','S','D'].map((d) => (
           <div key={d} className="text-center text-[10px] font-inter text-[#444] uppercase py-1">{d}</div>
         ))}
       </div>
-
-      {/* Grid */}
       <div className="grid grid-cols-7 gap-px">
         {cells.map((d, i) => {
           if (!d) return <div key={i} className="bg-[#0e0e0e] rounded-lg h-16" />
-          const iso      = toISO(d)
-          const isWd     = isWeekday(d)
-          const bookings = bookingsByDate[iso]
-          const count    = bookings?.length ?? null
-          const isToday  = iso === toISO(new Date())
-
+          const iso   = toISO(d)
+          const isWd  = isWeekday(d)
+          const count = bookingsByDate[iso]?.length ?? null
+          const isToday = iso === toISO(new Date())
           return (
             <button
               key={iso}
@@ -400,18 +565,18 @@ function MonthView({ current, bookingsByDate, onDayClick }: MonthViewProps) {
 // ── main component ────────────────────────────────────────────────
 
 export default function CalendarSection() {
-  const [view,           setView]           = useState<CalView>('week')
-  const [currentDate,    setCurrentDate]    = useState<Date>(() => {
+  const [view,           setView]        = useState<CalView>('week')
+  const [currentDate,    setCurrentDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
   })
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, Booking[]>>({})
-  const [modal,          setModal]          = useState<{ date: string; slot: string } | null>(null)
+  const [addModal,       setAddModal]       = useState<{ date: string; slot: string } | null>(null)
+  const [editBooking,    setEditBooking]    = useState<Booking | null>(null)
 
   const fetchedRef = useRef<Set<string>>(new Set())
 
-  // Load slot definitions once
   useEffect(() => {
     fetch('/api/admin/availability-slots')
       .then((r) => r.json())
@@ -421,7 +586,6 @@ export default function CalendarSection() {
       .finally(() => setLoadingSlots(false))
   }, [])
 
-  // Load bookings for visible dates
   async function fetchDates(dates: string[]) {
     const toFetch = dates.filter((d) => !fetchedRef.current.has(d))
     if (toFetch.length === 0) return
@@ -449,7 +613,6 @@ export default function CalendarSection() {
     fetchDates([date])
   }
 
-  // Re-fetch when view or currentDate changes
   const periodKey = `${view}:${toISO(currentDate)}`
   useEffect(() => {
     fetchDates(getVisibleDates(view, currentDate))
@@ -458,15 +621,10 @@ export default function CalendarSection() {
 
   function navigate(dir: 1 | -1) {
     setCurrentDate((prev) => {
-      if (view === 'day')   return addDays(prev, dir)
-      if (view === 'week')  return addDays(prev, dir * 7)
+      if (view === 'day')  return addDays(prev, dir)
+      if (view === 'week') return addDays(prev, dir * 7)
       const d = new Date(prev); d.setMonth(d.getMonth() + dir); return d
     })
-  }
-
-  function handleDayClickInMonth(iso: string) {
-    setCurrentDate(new Date(iso + 'T12:00:00'))
-    setView('day')
   }
 
   const visibleDates = getVisibleDates(view, currentDate)
@@ -485,7 +643,6 @@ export default function CalendarSection() {
     <div className="space-y-5">
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        {/* View selector */}
         <div className="flex gap-1">
           {(['day', 'week', 'month'] as CalView[]).map((v) => (
             <button
@@ -500,42 +657,28 @@ export default function CalendarSection() {
             </button>
           ))}
         </div>
-
-        {/* Navigation */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-[#555] hover:text-white text-lg font-inter px-2 transition-colors"
-          >
-            ‹
-          </button>
-          <span className="text-white text-sm font-inter min-w-[180px] text-center">
-            {periodLabel(view, currentDate)}
-          </span>
-          <button
-            onClick={() => navigate(1)}
-            className="text-[#555] hover:text-white text-lg font-inter px-2 transition-colors"
-          >
-            ›
-          </button>
+          <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
+          <span className="text-white text-sm font-inter min-w-[180px] text-center">{periodLabel(view, currentDate)}</span>
+          <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
         </div>
       </div>
 
       {/* View content */}
       <div className="bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl p-4">
         {view === 'day' && (() => {
-          const date    = visibleDates[0]
+          const date = visibleDates[0]
           if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
-          const d       = new Date(date + 'T12:00:00')
-          const dayDow  = dow(d)
-          const slots   = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
+          const dayDow   = dow(new Date(date + 'T12:00:00'))
+          const slots    = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
           const bookings = bookingsByDate[date] ?? []
           return (
             <DayView
               date={date}
               slots={slots}
               bookings={bookings}
-              onAdd={(slot) => setModal({ date, slot })}
+              onAdd={(slot) => setAddModal({ date, slot })}
+              onEdit={(booking) => setEditBooking(booking)}
             />
           )
         })()}
@@ -545,7 +688,8 @@ export default function CalendarSection() {
             dates={visibleDates}
             slotsData={slotsData}
             bookingsByDate={bookingsByDate}
-            onAdd={(date, slot) => setModal({ date, slot })}
+            onAdd={(date, slot) => setAddModal({ date, slot })}
+            onEdit={(booking) => setEditBooking(booking)}
           />
         )}
 
@@ -553,18 +697,28 @@ export default function CalendarSection() {
           <MonthView
             current={currentDate}
             bookingsByDate={bookingsByDate}
-            onDayClick={handleDayClickInMonth}
+            onDayClick={(iso) => { setCurrentDate(new Date(iso + 'T12:00:00')); setView('day') }}
           />
         )}
       </div>
 
-      {/* Booking modal */}
-      {modal && (
-        <BookingModal
-          date={modal.date}
-          slot={modal.slot}
-          onClose={() => setModal(null)}
-          onBooked={() => refreshDate(modal.date)}
+      {/* Add modal */}
+      {addModal && (
+        <AddModal
+          date={addModal.date}
+          slot={addModal.slot}
+          onClose={() => setAddModal(null)}
+          onBooked={() => refreshDate(addModal.date)}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editBooking && (
+        <EditModal
+          booking={editBooking}
+          onClose={() => setEditBooking(null)}
+          onSaved={() => refreshDate(editBooking.date)}
+          onDeleted={() => refreshDate(editBooking.date)}
         />
       )}
     </div>

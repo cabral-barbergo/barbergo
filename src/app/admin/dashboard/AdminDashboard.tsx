@@ -3,26 +3,20 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AgendaSection       from './sections/AgendaSection'
-import AvailabilitySection from './sections/AvailabilitySection'
-import BlockedDaysSection  from './sections/BlockedDaysSection'
 import CalendarSection     from './sections/CalendarSection'
-import ConfigSection       from './sections/ConfigSection'
-import ZoneSection         from './sections/ZoneSection'
+import ConfigGroupSection  from './sections/ConfigGroupSection'
 
-type Tab = 'agenda' | 'calendario' | 'disponibilidad' | 'bloqueados' | 'configuracion' | 'zona'
+type Tab = 'ruta' | 'agenda' | 'configuracion'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'agenda',          label: 'Agenda',             icon: '📅' },
-  { id: 'calendario',      label: 'Calendario',         icon: '🗓️' },
-  { id: 'disponibilidad',  label: 'Disponibilidad',     icon: '🕐' },
-  { id: 'bloqueados',      label: 'Días bloqueados',    icon: '🚫' },
-  { id: 'configuracion',   label: 'Configuración',      icon: '⚙️' },
-  { id: 'zona',            label: 'Zona de cobertura',  icon: '🗺️' },
+  { id: 'ruta',          label: 'Ruta',          icon: '📍' },
+  { id: 'agenda',        label: 'Agenda',        icon: '🗓️' },
+  { id: 'configuracion', label: 'Configuración', icon: '⚙️' },
 ]
 
 export default function AdminDashboard() {
-  const router  = useRouter()
-  const [tab, setTab] = useState<Tab>('agenda')
+  const router     = useRouter()
+  const [tab, setTab]           = useState<Tab>('ruta')
   const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleLogout() {
@@ -73,12 +67,9 @@ export default function AdminDashboard() {
 
       {/* Content */}
       <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full">
-        {tab === 'agenda'          && <AgendaSection />}
-        {tab === 'calendario'      && <CalendarSection />}
-        {tab === 'disponibilidad'  && <AvailabilitySection />}
-        {tab === 'bloqueados'      && <BlockedDaysSection />}
-        {tab === 'configuracion'   && <ConfigSection />}
-        {tab === 'zona'            && <ZoneSection />}
+        {tab === 'ruta'          && <AgendaSection />}
+        {tab === 'agenda'        && <CalendarSection />}
+        {tab === 'configuracion' && <ConfigGroupSection />}
       </div>
     </div>
   )
