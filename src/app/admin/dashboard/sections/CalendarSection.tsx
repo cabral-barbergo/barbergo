@@ -458,10 +458,13 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] border-collapse">
+      <table className="border-collapse" style={{ minWidth: 520 }}>
         <thead>
           <tr>
-            <th className="w-12" />
+            <th
+              className="w-12 bg-[#111]"
+              style={{ position: 'sticky', left: 0, zIndex: 20 }}
+            />
             {dates.map((date) => {
               const d = new Date(date + 'T12:00:00')
               return (
@@ -476,7 +479,12 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
         <tbody>
           {allTimes.map((time) => (
             <tr key={time} className="border-t border-[#1a1a1a]">
-              <td className="text-[#444] text-[10px] font-mono pr-2 py-1 align-middle whitespace-nowrap">{time}</td>
+              <td
+                className="text-[#444] text-[10px] font-mono pr-2 py-1 align-middle whitespace-nowrap bg-[#111]"
+                style={{ position: 'sticky', left: 0, zIndex: 10 }}
+              >
+                {time}
+              </td>
               {dates.map((date, i) => {
                 const dayData  = slotsData.find((d) => d.dayOfWeek === i)
                 const isActive = dayData?.slots.find((s) => s.slot === time)?.isActive

@@ -13,6 +13,14 @@ interface DayData {
   slots: SlotState[]
 }
 
+const DAY_LABELS: Record<string, string> = {
+  Lunes: 'LUNES',
+  Martes: 'MARTES',
+  Miércoles: 'MIÉRCOLES',
+  Jueves: 'JUEVES',
+  Viernes: 'VIERNES',
+}
+
 function deriveFranja(slots: SlotState[]): { start: string; end: string } {
   const active = slots.filter((s) => s.isActive).map((s) => s.slot).sort()
   if (active.length === 0) return { start: '08:30', end: '17:30' }
@@ -95,93 +103,96 @@ export default function AvailabilitySection() {
     return (
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-24 bg-[#1a1a1a] rounded-xl animate-pulse" />
+          <div key={i} className="h-36 bg-[#1a1a1a] rounded-xl animate-pulse" />
         ))}
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-[#555] text-sm font-inter">
-        Definí la franja horaria de cada día para activar todos los slots de una vez,
-        o ajustá slots individuales haciendo click en cada uno.
-      </p>
-
+    <div className="space-y-6">
       {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
 
-      <div className="space-y-3">
-        {days.map((day) => {
-          const franja      = franjas[day.dayOfWeek] ?? { start: '08:30', end: '17:30' }
-          const isApplying  = applying === day.dayOfWeek
-          const activeCount = day.slots.filter((s) => s.isActive).length
+      {days.map((day) => {
+        const franja     = franjas[day.dayOfWeek] ?? { start: '08:30', end: '17:30' }
+        const isApplying = applying === day.dayOfWeek
+        const label      = DAY_LABELS[day.dayName] ?? day.dayName.toUpperCase()
 
-          return (
-            <div
-              key={day.dayOfWeek}
-              className="bg-[#111] border border-[#1e1e1e] rounded-xl p-4 space-y-3"
-            >
-              {/* Header row: name + franja inputs + button */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 w-28 shrink-0">
-                  <span className="font-syne font-semibold text-sm text-white">{day.dayName}</span>
-                  <span className="text-[#444] text-[10px] font-inter">{activeCount} slots</span>
-                </div>
+        return (
+          <div key={day.dayOfWeek} className="space-y-3">
+            {/* Day header */}
+            <p className="font-syne font-bold text-[#c8a97e] text-lg tracking-wide">{label}</p>
 
+            {/* Franja inputs */}
+            <div className="flex gap-3">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-[#555] text-[10px] font-inter uppercase tracking-wide">Inicio</label>
                 <input
                   type="time"
                   value={franja.start}
                   onChange={(e) =>
                     setFranjas((prev) => ({ ...prev, [day.dayOfWeek]: { ...franja, start: e.target.value } }))
                   }
-                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-28"
+                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-full"
                 />
-                <span className="text-[#444] text-sm font-inter">→</span>
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-[#555] text-[10px] font-inter uppercase tracking-wide">Fin</label>
                 <input
                   type="time"
                   value={franja.end}
                   onChange={(e) =>
                     setFranjas((prev) => ({ ...prev, [day.dayOfWeek]: { ...franja, end: e.target.value } }))
                   }
-                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-28"
+                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-full"
                 />
-
-                <button
-                  onClick={() => applyFranja(day.dayOfWeek)}
-                  disabled={isApplying}
-                  className="bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-xs font-bold font-syne rounded-lg px-3 py-1.5 transition-all disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isApplying && <SmallSpinner />}
-                  {isApplying ? 'Aplicando…' : 'Aplicar franja'}
-                </button>
-              </div>
-
-              {/* Slot toggles */}
-              <div className="flex flex-wrap gap-1.5">
-                {day.slots.map((s) => {
-                  const tKey      = `${day.dayOfWeek}:${s.slot}`
-                  const isLoading = toggling === tKey
-                  return (
-                    <button
-                      key={s.slot}
-                      onClick={() => toggleSlot(day.dayOfWeek, s.slot, s.isActive)}
-                      disabled={isLoading}
-                      className={[
-                        'px-2.5 py-1 rounded-md text-xs font-inter transition-all disabled:opacity-40',
-                        s.isActive
-                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
-                          : 'bg-[#1a1a1a] border border-[#252525] text-[#444] hover:text-[#666]',
-                      ].join(' ')}
-                    >
-                      {s.slot}
-                    </button>
-                  )
-                })}
               </div>
             </div>
-          )
-        })}
-      </div>
+
+            {/* Apply button */}
+            <button
+              onClick={() => applyFranja(day.dayOfWeek)}
+              disabled={isApplying}
+              className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-semibold font-syne rounded-lg py-2 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isApplying && <SmallSpinner />}
+              {isApplying ? 'Aplicando…' : 'Aplicar franja'}
+            </button>
+
+            {/* Slot grid */}
+            <div
+              className="flex flex-wrap gap-1.5"
+              style={{ gridTemplateColumns: 'repeat(auto-fill, 64px)', display: 'grid' }}
+            >
+              {day.slots.map((s) => {
+                const tKey      = `${day.dayOfWeek}:${s.slot}`
+                const isLoading = toggling === tKey
+                return (
+                  <button
+                    key={s.slot}
+                    onClick={() => toggleSlot(day.dayOfWeek, s.slot, s.isActive)}
+                    disabled={isLoading}
+                    style={{
+                      width: 64,
+                      height: 36,
+                      fontSize: '0.75rem',
+                      background: s.isActive ? 'rgba(200,169,126,0.15)' : '#1a1a1a',
+                      border: s.isActive ? '1.5px solid #c8a97e' : '1px solid #2a2a2a',
+                      color: s.isActive ? '#c8a97e' : '#444',
+                    }}
+                    className="rounded-md font-inter transition-all disabled:opacity-40 flex items-center justify-center"
+                  >
+                    {s.slot}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-[#1a1a1a]" />
+          </div>
+        )
+      })}
     </div>
   )
 }
