@@ -9,6 +9,7 @@ import Step2Day from './steps/Step2Day'
 import Step3Slot from './steps/Step3Slot'
 import Step4Service from './steps/Step4Service'
 import Step5Form from './steps/Step5Form'
+import BarberGoLogo from '@/components/BarberGoLogo'
 
 type Step = 1 | 2 | 3 | 4 | 5
 
@@ -127,7 +128,7 @@ function Header() {
   return (
     <header className="flex items-center justify-center py-6 px-4 border-b border-[#1a1a1a]">
       <a href="/" className="flex items-center gap-2">
-        <span className="text-[#c8a97e] text-xl">💈</span>
+        <BarberGoLogo size={20} />
         <span className="font-syne font-bold text-white text-lg tracking-wide">BarberGo</span>
       </a>
     </header>

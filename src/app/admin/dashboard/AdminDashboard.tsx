@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MapPin, CalendarDays, Settings, LogOut } from 'lucide-react'
+import BarberGoLogo from '@/components/BarberGoLogo'
 import AgendaSection       from './sections/AgendaSection'
 import CalendarSection     from './sections/CalendarSection'
 import ConfigGroupSection  from './sections/ConfigGroupSection'
@@ -25,7 +26,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="border-b border-[#1a1a1a] px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[#c8a97e] text-xl">💈</span>
+          <BarberGoLogo size={20} />
           <span className="font-syne font-bold text-white text-lg">BarberGo</span>
           <span className="ml-2 text-[#333] text-xs font-inter border border-[#222] rounded px-2 py-0.5">Admin</span>
         </div>

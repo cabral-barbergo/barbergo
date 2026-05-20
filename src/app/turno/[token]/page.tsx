@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { SERVICES } from '@/lib/constants'
 import type { Booking } from '@/lib/types'
+import BarberGoLogo from '@/components/BarberGoLogo'
 
 // ── date helpers ─────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ export default function TurnoPage() {
       <div className="bg-[#111] border border-[#1e1e1e] rounded-2xl p-6 sm:p-8 shadow-xl shadow-black/40 space-y-6">
 
         <div className="flex items-center gap-3">
-          <span className="text-2xl">💈</span>
+          <BarberGoLogo size={24} />
           <div>
             <p className="font-syne font-bold text-white text-lg leading-tight">Tu turno</p>
             <p className="text-[#555] text-xs font-inter">Podés cancelarlo hasta 2 horas antes</p>
@@ -187,7 +188,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       <header className="flex items-center justify-center py-6 px-4 border-b border-[#1a1a1a]">
         <a href="/" className="flex items-center gap-2">
-          <span className="text-[#c8a97e] text-xl">💈</span>
+          <BarberGoLogo size={20} />
           <span className="font-syne font-bold text-white text-lg tracking-wide">BarberGo</span>
         </a>
       </header>
