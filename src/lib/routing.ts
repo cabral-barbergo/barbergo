@@ -56,38 +56,48 @@ export function canJoinBlock(
   newLat: number,
   newLon: number
 ): { ok: boolean; reason?: 'not_adjacent' | 'distance' } {
-  console.log('[canJoinBlock] blockBookings:', blockBookings.length, 'newSlot:', newSlot)
-
-  if (blockBookings.length === 0) {
-    const result = { ok: true }
-    console.log('[canJoinBlock] result:', result)
-    return result
-  }
+  if (blockBookings.length === 0) return { ok: true }
 
   const newSlotIdx = blockSlots.indexOf(newSlot)
-  if (newSlotIdx === -1) {
-    const result = { ok: false, reason: 'not_adjacent' as const }
-    console.log('[canJoinBlock] result:', result)
-    return result
+  if (newSlotIdx === -1) return { ok: false, reason: 'not_adjacent' }
+
+  // Build set of taken indices within this block
+  const takenIndices = new Set(
+    blockBookings.map((b) => blockSlots.indexOf((b.slot || '').toString().substring(0, 5)))
+  )
+
+  // Group consecutive taken indices into contiguous clusters
+  const sorted = Array.from(takenIndices).filter((i) => i !== -1).sort((a, b) => a - b)
+  const groups: number[][] = []
+  for (const idx of sorted) {
+    const last = groups[groups.length - 1]
+    if (last && idx === last[last.length - 1] + 1) {
+      last.push(idx)
+    } else {
+      groups.push([idx])
+    }
   }
 
-  const adjacentBookings = blockBookings.filter((b) => {
-    const bIdx = blockSlots.indexOf((b.slot || '').toString().substring(0, 5))
-    return bIdx === newSlotIdx - 1 || bIdx === newSlotIdx + 1
+  // Find groups where newSlotIdx is the immediate neighbor (min-1 or max+1)
+  const adjacentGroups = groups.filter((g) => {
+    const min = g[0]
+    const max = g[g.length - 1]
+    return newSlotIdx === min - 1 || newSlotIdx === max + 1
   })
 
-  if (adjacentBookings.length === 0) {
-    const result = { ok: false, reason: 'not_adjacent' as const }
-    console.log('[canJoinBlock] result:', result)
-    return result
-  }
+  if (adjacentGroups.length === 0) return { ok: false, reason: 'not_adjacent' }
+
+  // Check distance against all bookings in the adjacent groups
+  const adjacentGroupIndices = new Set<number>(adjacentGroups.flat())
+  const adjacentBookings = blockBookings.filter((b) => {
+    const idx = blockSlots.indexOf((b.slot || '').toString().substring(0, 5))
+    return adjacentGroupIndices.has(idx)
+  })
 
   const withinRange = adjacentBookings.some(
     (b) => haversine(newLat, newLon, b.lat, b.lon) <= PROXIMITY_MAX_KM
   )
-  const result = withinRange ? { ok: true } : { ok: false, reason: 'distance' as const }
-  console.log('[canJoinBlock] result:', result)
-  return result
+  return withinRange ? { ok: true } : { ok: false, reason: 'distance' }
 }
 
 // ── Service zone geometry ────────────────────────────────────────
