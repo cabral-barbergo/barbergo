@@ -3,15 +3,14 @@ export const revalidate = 0
 
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized } from '@/lib/adminAuth'
-import { getSettingValue, upsertSetting } from '@/lib/db/bookings'
+import { getBookingWindowDays, setBookingWindowDays } from '@/lib/db/bookings'
 
 const DEFAULT_WINDOW = 5
 
 export async function GET() {
   try {
-    const raw = await getSettingValue('booking_window_days')
-    const value = raw !== null ? parseInt(raw, 10) : DEFAULT_WINDOW
-    return NextResponse.json({ booking_window_days: isNaN(value) ? DEFAULT_WINDOW : value })
+    const value = await getBookingWindowDays()
+    return NextResponse.json({ booking_window_days: value })
   } catch (err) {
     console.error('[admin/settings GET]', err)
     return NextResponse.json({ booking_window_days: DEFAULT_WINDOW })
@@ -42,10 +41,10 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    await upsertSetting('booking_window_days', String(booking_window_days))
+    await setBookingWindowDays(booking_window_days)
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[admin/settings PATCH]', err)
+    console.error('[admin/settings PATCH] full error:', JSON.stringify(err, null, 2))
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

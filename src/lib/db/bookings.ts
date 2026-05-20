@@ -299,26 +299,38 @@ export async function unblockSlot(date: string, slot: string): Promise<void> {
   if (error) throw error
 }
 
-// ── settings (key-value store) ───────────────────────────────────
+// ── settings via service_zone ────────────────────────────────────
+// Requires: ALTER TABLE service_zone ADD COLUMN IF NOT EXISTS booking_window_days integer DEFAULT 5;
 
-export async function getSettingValue(key: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', key)
-    .single()
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
+export async function getBookingWindowDays(): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('service_zone')
+      .select('booking_window_days')
+      .eq('name', 'main')
+      .single()
+    if (error) {
+      console.error('[db] getBookingWindowDays error:', JSON.stringify(error, null, 2))
+      return 5
+    }
+    const val = (data as { booking_window_days?: number | null }).booking_window_days
+    return typeof val === 'number' ? val : 5
+  } catch (err) {
+    console.error('[db] getBookingWindowDays unexpected error:', err)
+    return 5
   }
-  return (data as { value: string }).value
 }
 
-export async function upsertSetting(key: string, value: string): Promise<void> {
+export async function setBookingWindowDays(days: number): Promise<void> {
   const { error } = await supabase
-    .from('settings')
-    .upsert({ key, value }, { onConflict: 'key' })
-  if (error) throw error
+    .from('service_zone')
+    .update({ booking_window_days: days } as Record<string, unknown>)
+    .eq('name', 'main')
+  if (error) {
+    console.error('[db] setBookingWindowDays error:', JSON.stringify(error, null, 2))
+    console.error('[db] HINT: run in Supabase SQL editor: ALTER TABLE service_zone ADD COLUMN IF NOT EXISTS booking_window_days integer DEFAULT 5;')
+    throw error
+  }
 }
 
 // ── service_zone (schema v3) ─────────────────────────────────────
