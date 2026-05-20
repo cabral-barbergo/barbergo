@@ -112,7 +112,27 @@ export default function ConfigGroupSection() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 border-b border-[#1a1a1a] overflow-x-auto">
+      {/* Mobile: 2x2 grid */}
+      <div className="grid grid-cols-2 gap-2 md:hidden">
+        {SUBTABS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setSubtab(id)}
+            className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-[10px] border transition-colors"
+            style={{
+              background: subtab === id ? 'rgba(200,169,126,0.1)' : '#111',
+              borderColor: subtab === id ? '#c8a97e' : '#222',
+              color: subtab === id ? '#c8a97e' : '#555',
+            }}
+          >
+            <Icon size={18} />
+            <span className="text-xs font-inter font-medium text-center leading-tight">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop: horizontal tabs */}
+      <div className="hidden md:flex gap-1 border-b border-[#1a1a1a]">
         {SUBTABS.map(({ id, label, Icon }) => (
           <button
             key={id}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 
 interface SlotState {
   slot: string
@@ -123,57 +124,52 @@ export default function AvailabilitySection() {
             {/* Day header */}
             <p className="font-syne font-bold text-[#c8a97e] text-lg tracking-wide">{label}</p>
 
-            {/* Franja inputs */}
-            <div className="flex gap-3">
-              <div className="flex flex-col gap-1 flex-1">
-                <label className="text-[#555] text-[10px] font-inter uppercase tracking-wide">Inicio</label>
+            {/* Franja inputs + button + grid — all same width */}
+            <div className="w-full space-y-2">
+              {/* Inputs row */}
+              <div className="flex items-center gap-2 w-full">
                 <input
                   type="time"
                   value={franja.start}
                   onChange={(e) =>
                     setFranjas((prev) => ({ ...prev, [day.dayOfWeek]: { ...franja, start: e.target.value } }))
                   }
-                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-full"
+                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg font-inter text-white focus:outline-none focus:border-[#c8a97e]/60"
+                  style={{ flex: '45 45 0%', padding: '0.5rem', fontSize: '0.85rem' }}
                 />
-              </div>
-              <div className="flex flex-col gap-1 flex-1">
-                <label className="text-[#555] text-[10px] font-inter uppercase tracking-wide">Fin</label>
+                <ChevronRight size={16} className="text-[#666] shrink-0" />
                 <input
                   type="time"
                   value={franja.end}
                   onChange={(e) =>
                     setFranjas((prev) => ({ ...prev, [day.dayOfWeek]: { ...franja, end: e.target.value } }))
                   }
-                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 w-full"
+                  className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg font-inter text-white focus:outline-none focus:border-[#c8a97e]/60"
+                  style={{ flex: '45 45 0%', padding: '0.5rem', fontSize: '0.85rem' }}
                 />
               </div>
-            </div>
 
-            {/* Apply button */}
-            <button
-              onClick={() => applyFranja(day.dayOfWeek)}
-              disabled={isApplying}
-              className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-semibold font-syne rounded-lg py-2 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isApplying && <SmallSpinner />}
-              {isApplying ? 'Aplicando…' : 'Aplicar franja'}
-            </button>
+              {/* Apply button */}
+              <button
+                onClick={() => applyFranja(day.dayOfWeek)}
+                disabled={isApplying}
+                className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-semibold font-syne rounded-lg py-2 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isApplying && <SmallSpinner />}
+                {isApplying ? 'Aplicando…' : 'Aplicar franja'}
+              </button>
 
-            {/* Slot grid */}
-            <div
-              className="flex flex-wrap gap-1.5"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, 64px)', display: 'grid' }}
-            >
-              {day.slots.map((s) => {
-                const tKey      = `${day.dayOfWeek}:${s.slot}`
-                const isLoading = toggling === tKey
-                return (
-                  <button
-                    key={s.slot}
-                    onClick={() => toggleSlot(day.dayOfWeek, s.slot, s.isActive)}
-                    disabled={isLoading}
+              {/* Slot grid — 5 cols */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.375rem' }}>
+                {day.slots.map((s) => {
+                  const tKey      = `${day.dayOfWeek}:${s.slot}`
+                  const isLoading = toggling === tKey
+                  return (
+                    <button
+                      key={s.slot}
+                      onClick={() => toggleSlot(day.dayOfWeek, s.slot, s.isActive)}
+                      disabled={isLoading}
                     style={{
-                      width: 64,
                       height: 36,
                       fontSize: '0.75rem',
                       background: s.isActive ? 'rgba(200,169,126,0.15)' : '#1a1a1a',
@@ -186,7 +182,8 @@ export default function AvailabilitySection() {
                   </button>
                 )
               })}
-            </div>
+              </div>
+            </div>{/* end w-full space-y-2 */}
 
             {/* Divider */}
             <div className="h-px bg-[#1a1a1a]" />
