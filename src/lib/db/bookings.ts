@@ -299,6 +299,28 @@ export async function unblockSlot(date: string, slot: string): Promise<void> {
   if (error) throw error
 }
 
+// ── settings (key-value store) ───────────────────────────────────
+
+export async function getSettingValue(key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .single()
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+  return (data as { value: string }).value
+}
+
+export async function upsertSetting(key: string, value: string): Promise<void> {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key, value }, { onConflict: 'key' })
+  if (error) throw error
+}
+
 // ── service_zone (schema v3) ─────────────────────────────────────
 
 type ServiceZoneRow = {
