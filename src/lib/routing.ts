@@ -1,7 +1,7 @@
 import type { Booking, AvailabilitySlot, Block, ServiceZone } from './types'
 
 const EARTH_RADIUS_KM = 6371
-const PROXIMITY_MAX_KM = 0.6
+const PROXIMITY_MAX_KM = 0.7
 
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180
