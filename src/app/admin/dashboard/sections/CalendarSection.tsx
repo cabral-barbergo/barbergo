@@ -372,17 +372,21 @@ interface SlotCellProps {
   compact?: boolean
 }
 
+const shortAddress = (address: string) => address.split(',')[0].trim()
+
 function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
   if (booking) {
+    const addr = !compact && booking.address ? shortAddress(booking.address) : null
     return (
       <button
         onClick={onEdit}
         className={[
-          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left text-xs font-inter text-[#c8a97e] truncate transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
-          compact ? 'px-2 py-1' : 'px-3 py-2',
+          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left text-xs font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
+          compact ? 'px-2 py-1 truncate' : 'px-3 py-2',
         ].join(' ')}
       >
-        {booking.clientName}
+        <span className="text-[#c8a97e] block truncate">{booking.clientName}</span>
+        {addr && <span className="text-[#7a6a55] block truncate text-[10px] mt-0.5">{addr}</span>}
       </button>
     )
   }
