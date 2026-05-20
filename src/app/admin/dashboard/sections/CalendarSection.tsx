@@ -381,12 +381,25 @@ function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
       <button
         onClick={onEdit}
         className={[
-          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left text-xs font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
-          compact ? 'px-2 py-1 truncate' : 'px-3 py-2',
+          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
+          compact ? 'px-2 py-1 text-xs truncate' : '',
         ].join(' ')}
+        style={!compact ? { padding: '0.75rem 1rem' } : undefined}
       >
-        <span className="text-[#c8a97e] block truncate">{booking.clientName}</span>
-        {addr && <span className="text-[#7a6a55] block truncate text-[10px] mt-0.5">{addr}</span>}
+        {compact ? (
+          <span className="text-[#c8a97e]">{booking.clientName}</span>
+        ) : (
+          <>
+            <span className="block truncate font-semibold text-[#ede9e1]" style={{ fontSize: '1rem' }}>
+              {booking.clientName}
+            </span>
+            {addr && (
+              <span className="block truncate text-[#c8a97e]" style={{ fontSize: '0.85rem' }}>
+                {addr}
+              </span>
+            )}
+          </>
+        )}
       </button>
     )
   }
@@ -656,15 +669,16 @@ export default function CalendarSection() {
     <div className="space-y-5">
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-1">
+        <div className="flex justify-center gap-1 flex-1">
           {(['day', 'week', 'month'] as CalView[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={[
-                'px-3 py-1.5 rounded-lg text-xs font-inter font-medium transition-colors',
+                'rounded-lg font-inter font-medium transition-colors',
                 view === v ? 'bg-[#c8a97e] text-black' : 'bg-[#1a1a1a] text-[#555] hover:text-white',
               ].join(' ')}
+              style={{ padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}
             >
               {v === 'day' ? 'Día' : v === 'week' ? 'Semana' : 'Mes'}
             </button>
