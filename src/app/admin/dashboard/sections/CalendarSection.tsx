@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Plus, Trash2, Check, X, User, MapPin } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
@@ -157,7 +158,7 @@ function AddModal({ date, slot, onClose, onBooked }: AddModalProps) {
 
         <div className="space-y-3">
           <div>
-            <label className="text-[#888] text-xs font-inter block mb-1">Nombre del cliente *</label>
+            <label className="text-[#888] text-xs font-inter flex items-center gap-1 mb-1"><User size={12} />Nombre del cliente *</label>
             <input
               type="text"
               value={clientName}
@@ -168,7 +169,7 @@ function AddModal({ date, slot, onClose, onBooked }: AddModalProps) {
             />
           </div>
           <div>
-            <label className="text-[#888] text-xs font-inter block mb-1">Dirección (opcional)</label>
+            <label className="text-[#888] text-xs font-inter flex items-center gap-1 mb-1"><MapPin size={12} />Dirección (opcional)</label>
             <AddressAutocomplete
               value={address}
               onChange={(v) => { setAddress(v); setFreshCoords(null) }}
@@ -185,16 +186,16 @@ function AddModal({ date, slot, onClose, onBooked }: AddModalProps) {
           <button
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50"
+            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Cancelar
+            <X size={14} />Cancelar
           </button>
           <button
             onClick={handleConfirm}
             disabled={submitting}
-            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50"
+            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            {submitting ? '…' : 'Confirmar'}
+            <Check size={14} />{submitting ? 'Guardando…' : 'Confirmar'}
           </button>
         </div>
       </div>
@@ -289,7 +290,7 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
 
         <div className="space-y-3">
           <div>
-            <label className="text-[#888] text-xs font-inter block mb-1">Nombre del cliente *</label>
+            <label className="text-[#888] text-xs font-inter flex items-center gap-1 mb-1"><User size={12} />Nombre del cliente *</label>
             <input
               type="text"
               value={clientName}
@@ -298,7 +299,7 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
             />
           </div>
           <div>
-            <label className="text-[#888] text-xs font-inter block mb-1">Dirección</label>
+            <label className="text-[#888] text-xs font-inter flex items-center gap-1 mb-1"><MapPin size={12} />Dirección</label>
             <AddressAutocomplete
               value={address}
               onChange={(v) => { setAddress(v); setFreshCoords(null) }}
@@ -325,9 +326,9 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold font-syne rounded-lg px-3 py-2 transition-all disabled:opacity-50"
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold font-syne rounded-lg px-3 py-2 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
               >
-                {deleting ? '…' : 'Sí, eliminar'}
+                <Trash2 size={12} />{deleting ? '…' : 'Sí, eliminar'}
               </button>
             </div>
           </div>
@@ -335,9 +336,9 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
           <button
             onClick={() => setConfirmDelete(true)}
             disabled={busy}
-            className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-inter rounded-lg py-2 transition-all disabled:opacity-50"
+            className="w-full border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-inter rounded-lg py-2 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Eliminar turno
+            <Trash2 size={13} />Eliminar turno
           </button>
         )}
 
@@ -345,16 +346,16 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
           <button
             onClick={onClose}
             disabled={busy}
-            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50"
+            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Cancelar
+            <X size={14} />Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={busy}
-            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50"
+            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            {saving ? '…' : 'Guardar cambios'}
+            <Check size={14} />{saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -393,7 +394,7 @@ function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
         compact ? 'px-2 py-1' : 'px-3 py-2',
       ].join(' ')}
     >
-      +
+      <Plus size={12} />
     </button>
   )
 }

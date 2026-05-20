@@ -2,17 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { MapPin, CalendarDays, Settings, LogOut } from 'lucide-react'
 import AgendaSection       from './sections/AgendaSection'
 import CalendarSection     from './sections/CalendarSection'
 import ConfigGroupSection  from './sections/ConfigGroupSection'
 
 type Tab = 'ruta' | 'agenda' | 'configuracion'
-
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'ruta',          label: 'Ruta',          icon: '📍' },
-  { id: 'agenda',        label: 'Agenda',        icon: '🗓️' },
-  { id: 'configuracion', label: 'Configuración', icon: '⚙️' },
-]
 
 export default function AdminDashboard() {
   const router     = useRouter()
@@ -39,38 +34,75 @@ export default function AdminDashboard() {
           disabled={loggingOut}
           className="text-[#444] hover:text-[#c8a97e] text-xs font-inter transition-colors flex items-center gap-1.5 disabled:opacity-50"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          <LogOut size={14} />
           Salir
         </button>
       </header>
 
-      {/* Tab nav */}
-      <div className="border-b border-[#1a1a1a] px-4 sm:px-8 flex gap-1">
-        {TABS.map(({ id, label, icon }) => (
+      {/* Desktop tab nav — hidden on mobile */}
+      <div className="hidden md:flex border-b border-[#1a1a1a] px-4 sm:px-8 gap-1">
+        {([
+          { id: 'ruta'          as Tab, label: 'Ruta',          Icon: MapPin },
+          { id: 'agenda'        as Tab, label: 'Agenda',        Icon: CalendarDays },
+          { id: 'configuracion' as Tab, label: 'Configuración', Icon: Settings },
+        ]).map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={[
-              'flex items-center gap-1.5 px-3 sm:px-4 py-3.5 text-xs sm:text-sm font-inter font-medium border-b-2 transition-colors',
+              'flex items-center gap-1.5 px-4 py-3.5 text-sm font-inter font-medium border-b-2 transition-colors',
               tab === id
                 ? 'border-[#c8a97e] text-[#c8a97e]'
                 : 'border-transparent text-[#444] hover:text-[#888]',
             ].join(' ')}
           >
-            <span className="text-base leading-none">{icon}</span>
-            <span className="hidden sm:inline">{label}</span>
+            <Icon size={16} />
+            {label}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full">
+      <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full pb-24 md:pb-7">
         {tab === 'ruta'          && <AgendaSection />}
         {tab === 'agenda'        && <CalendarSection />}
         {tab === 'configuracion' && <ConfigGroupSection />}
       </div>
+
+      {/* Mobile bottom nav — visible only on mobile/tablet */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-[#222] h-16 flex items-center justify-around px-2">
+        {/* Ruta */}
+        <button
+          onClick={() => setTab('ruta')}
+          className="flex flex-col items-center gap-0.5 px-4"
+        >
+          <MapPin size={20} className={tab === 'ruta' ? 'text-[#c8a97e]' : 'text-[#666]'} />
+          <span className={`text-[10px] font-inter ${tab === 'ruta' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Ruta</span>
+        </button>
+
+        {/* Agenda — elevated center button */}
+        <button
+          onClick={() => setTab('agenda')}
+          className="flex flex-col items-center -mt-5"
+        >
+          <span className={[
+            'w-[52px] h-[52px] rounded-full flex items-center justify-center shadow-lg transition-all',
+            tab === 'agenda' ? 'bg-[#c8a97e]' : 'bg-[#1a1a1a] border border-[#2a2a2a]',
+          ].join(' ')}>
+            <CalendarDays size={22} className={tab === 'agenda' ? 'text-black' : 'text-[#666]'} />
+          </span>
+          <span className={`text-[10px] font-inter mt-0.5 ${tab === 'agenda' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Agenda</span>
+        </button>
+
+        {/* Config */}
+        <button
+          onClick={() => setTab('configuracion')}
+          className="flex flex-col items-center gap-0.5 px-4"
+        >
+          <Settings size={20} className={tab === 'configuracion' ? 'text-[#c8a97e]' : 'text-[#666]'} />
+          <span className={`text-[10px] font-inter ${tab === 'configuracion' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Config</span>
+        </button>
+      </nav>
     </div>
   )
 }

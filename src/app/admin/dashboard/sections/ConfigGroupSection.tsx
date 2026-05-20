@@ -1,17 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { Settings, Clock, CalendarX, Map } from 'lucide-react'
 import AvailabilitySection from './AvailabilitySection'
 import BlockedDaysSection  from './BlockedDaysSection'
 import ZoneSection         from './ZoneSection'
 
 type SubTab = 'general' | 'disponibilidad' | 'bloqueados' | 'zona'
 
-const SUBTABS: { id: SubTab; label: string }[] = [
-  { id: 'general',        label: 'General' },
-  { id: 'disponibilidad', label: 'Disponibilidad' },
-  { id: 'bloqueados',     label: 'Días bloqueados' },
-  { id: 'zona',           label: 'Zona de cobertura' },
+const SUBTABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
+  { id: 'general',        label: 'General',          Icon: Settings },
+  { id: 'disponibilidad', label: 'Disponibilidad',   Icon: Clock },
+  { id: 'bloqueados',     label: 'Días bloqueados',  Icon: CalendarX },
+  { id: 'zona',           label: 'Zona de cobertura',Icon: Map },
 ]
 
 // ── General settings section ──────────────────────────────────────
@@ -112,17 +113,18 @@ export default function ConfigGroupSection() {
   return (
     <div className="space-y-5">
       <div className="flex gap-1 border-b border-[#1a1a1a] overflow-x-auto">
-        {SUBTABS.map(({ id, label }) => (
+        {SUBTABS.map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => setSubtab(id)}
             className={[
-              'px-4 py-2.5 text-sm font-inter font-medium border-b-2 transition-colors whitespace-nowrap',
+              'flex items-center gap-1.5 px-4 py-2.5 text-sm font-inter font-medium border-b-2 transition-colors whitespace-nowrap',
               subtab === id
                 ? 'border-[#c8a97e] text-[#c8a97e]'
                 : 'border-transparent text-[#444] hover:text-[#888]',
             ].join(' ')}
           >
+            <Icon size={14} />
             {label}
           </button>
         ))}

@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { MapPinOff } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import { SERVICES } from '@/lib/constants'
+import { getAvailableBookingDates } from '@/lib/utils'
 import RouteMap from '../components/RouteMap'
 
 interface AdminBookingsResponse {
@@ -10,8 +12,16 @@ interface AdminBookingsResponse {
   totalDistanceKm: number
 }
 
+function toLocalISO(d: Date): string {
+  return (
+    d.getFullYear() +
+    '-' + String(d.getMonth() + 1).padStart(2, '0') +
+    '-' + String(d.getDate()).padStart(2, '0')
+  )
+}
+
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+  return toLocalISO(new Date())
 }
 
 export default function AgendaSection() {
@@ -19,7 +29,26 @@ export default function AgendaSection() {
   const [data,      setData]      = useState<AdminBookingsResponse | null>(null)
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<string | null>(null)
-  const [cancelling, setCancelling] = useState<string | null>(null) // token being cancelled
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  // Mobile chip selector state
+  const [chipDays,  setChipDays]  = useState<string[]>([])
+  const chipScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    async function loadChipDays() {
+      const [settingsRes, blockedRes] = await Promise.all([
+        fetch('/api/admin/settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
+        fetch('/api/blocked-dates',  { cache: 'no-store' }).then((r) => r.json()).catch(() => []),
+      ])
+      const windowDays: number = settingsRes.booking_window_days ?? 5
+      const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
+      // Include today + window days of weekdays
+      const allDays = [todayISO(), ...getAvailableBookingDates(windowDays, blockedDates)]
+      setChipDays(allDays)
+    }
+    loadChipDays()
+  }, [])
 
   const fetchDay = useCallback(async (d: string) => {
     setLoading(true)
@@ -42,7 +71,8 @@ export default function AgendaSection() {
   }
 
   // Load today on first mount
-  useState(() => { fetchDay(todayISO()) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchDay(todayISO()) }, [])
 
   async function cancelBooking(token: string) {
     setCancelling(token)
@@ -71,8 +101,40 @@ export default function AgendaSection() {
 
   return (
     <div className="space-y-5">
-      {/* Date picker */}
-      <div className="flex items-center gap-3">
+      {/* Mobile: horizontal chip selector */}
+      {chipDays.length > 0 && (
+        <div
+          ref={chipScrollRef}
+          className="md:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {chipDays.map((d) => {
+            const [, mm, dd] = d.split('-')
+            const isSelected = d === date
+            const hasBookings = (data?.bookings ?? []).length > 0 && d === date
+            return (
+              <button
+                key={d}
+                onClick={() => { setDate(d); fetchDay(d) }}
+                className={[
+                  'flex flex-col items-center rounded-full px-3.5 py-2 shrink-0 transition-all',
+                  isSelected
+                    ? 'bg-[#c8a97e] text-black'
+                    : 'bg-[#1f1f1f] text-[#888] border border-[#2a2a2a]',
+                ].join(' ')}
+              >
+                <span className={`text-sm font-bold font-syne leading-none ${isSelected ? 'text-black' : 'text-[#aaa]'}`}>
+                  {parseInt(dd)}/{parseInt(mm)}
+                </span>
+                <span className="mt-1 w-1 h-1 rounded-full" style={{ background: hasBookings ? (isSelected ? '#000' : '#c8a97e') : 'transparent' }} />
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Desktop: date input */}
+      <div className="hidden md:flex items-center gap-3">
         <label className="text-[#555] text-xs font-inter uppercase tracking-wide shrink-0">Fecha</label>
         <input
           type="date"
@@ -137,7 +199,7 @@ export default function AgendaSection() {
                 </div>
                 {b.lat === 0 && b.lon === 0 ? (
                   <p className="text-[#555] text-xs font-inter leading-snug pl-7 flex items-center gap-1">
-                    <span>📍</span><span className="text-[#666]">Sin dirección</span>
+                    <MapPinOff size={11} className="text-[#555]" /><span className="text-[#666]">Sin dirección</span>
                   </p>
                 ) : (
                   <p className="text-[#555] text-xs font-inter leading-snug pl-7">{b.address}</p>
