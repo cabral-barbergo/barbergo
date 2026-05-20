@@ -668,8 +668,9 @@ export default function CalendarSection() {
   return (
     <div className="space-y-5">
       {/* Controls */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex justify-center gap-1 flex-1">
+      <div className="flex flex-col items-center gap-3">
+        {/* View selector */}
+        <div className="flex justify-center gap-4">
           {(['day', 'week', 'month'] as CalView[]).map((v) => (
             <button
               key={v}
@@ -684,9 +685,10 @@ export default function CalendarSection() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3">
+        {/* Date navigator — same width as button group */}
+        <div className="flex items-center justify-between" style={{ width: 'calc(3 * (1.5rem * 2 + 3ch) + 2 * 1rem)', minWidth: 280 }}>
           <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
-          <span className="text-white text-sm font-inter min-w-[180px] text-center">{periodLabel(view, currentDate)}</span>
+          <span className="text-white text-sm font-inter text-center flex-1">{periodLabel(view, currentDate)}</span>
           <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
         </div>
       </div>
