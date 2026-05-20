@@ -205,6 +205,39 @@ export async function toggleAvailabilitySlot(
   if (error) throw error
 }
 
+export async function applySlotRange(
+  dayOfWeek: number,
+  startTime: string,
+  endTime: string
+): Promise<void> {
+  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+  const startMins = toMins(startTime)
+  const endMins   = toMins(endTime)
+
+  const activeSlots: string[] = []
+  for (let mins = startMins; mins < endMins; mins += 30) {
+    const h = String(Math.floor(mins / 60)).padStart(2, '0')
+    const m = String(mins % 60).padStart(2, '0')
+    activeSlots.push(`${h}:${m}`)
+  }
+
+  const { error: deactivateErr } = await supabase
+    .from('availability_slots')
+    .update({ is_active: false })
+    .eq('day_of_week', dayOfWeek)
+  if (deactivateErr) throw deactivateErr
+
+  if (activeSlots.length === 0) return
+
+  const { error: upsertErr } = await supabase
+    .from('availability_slots')
+    .upsert(
+      activeSlots.map((slot) => ({ day_of_week: dayOfWeek, slot, is_active: true, slot_duration_minutes: 30 })),
+      { onConflict: 'day_of_week,slot' }
+    )
+  if (upsertErr) throw upsertErr
+}
+
 // ── blocked_slots (new schema v2) ────────────────────────────
 
 export async function getBlockedSlots(date: string): Promise<string[]> {

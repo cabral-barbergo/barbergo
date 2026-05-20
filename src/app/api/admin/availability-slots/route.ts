@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized } from '@/lib/adminAuth'
-import { getAllSlotsForDay, toggleAvailabilitySlot } from '@/lib/db/bookings'
+import { getAllSlotsForDay, toggleAvailabilitySlot, applySlotRange } from '@/lib/db/bookings'
 
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
@@ -36,17 +36,33 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { dayOfWeek, slot, isActive } = body as { dayOfWeek?: number; slot?: string; isActive?: boolean }
+  const raw = body as Record<string, unknown>
 
+  // Range mode: apply a time range to a day
+  if ('startTime' in raw || 'endTime' in raw) {
+    const { dayOfWeek, startTime, endTime } = raw as { dayOfWeek?: number; startTime?: string; endTime?: string }
+    if (dayOfWeek == null || !startTime || !endTime) {
+      return NextResponse.json({ error: 'dayOfWeek, startTime, and endTime are required' }, { status: 400 })
+    }
+    try {
+      await applySlotRange(dayOfWeek, startTime, endTime)
+      return NextResponse.json({ ok: true })
+    } catch (err) {
+      console.error('[admin/availability-slots PATCH range]', err)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  }
+
+  // Toggle mode: flip a single slot
+  const { dayOfWeek, slot, isActive } = raw as { dayOfWeek?: number; slot?: string; isActive?: boolean }
   if (dayOfWeek == null || !slot || isActive == null) {
     return NextResponse.json({ error: 'dayOfWeek, slot, and isActive are required' }, { status: 400 })
   }
-
   try {
     await toggleAvailabilitySlot(dayOfWeek, slot, isActive)
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[admin/availability-slots PATCH]', err)
+    console.error('[admin/availability-slots PATCH toggle]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

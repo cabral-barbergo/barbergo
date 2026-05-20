@@ -62,8 +62,9 @@ export default function AgendaSection() {
     }
   }
 
-  const bookings = data?.bookings ?? []
-  const revenue  = bookings.reduce((s, b) => {
+  const bookings    = data?.bookings ?? []
+  const mapBookings = bookings.filter((b) => b.lat !== 0 || b.lon !== 0)
+  const revenue     = bookings.reduce((s, b) => {
     const svc = SERVICES.find((sv) => sv.id === b.serviceId)
     return s + (svc?.price ?? 0)
   }, 0)
@@ -95,7 +96,7 @@ export default function AgendaSection() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* Map */}
         <div className="lg:col-span-3">
-          <RouteMap bookings={bookings} />
+          <RouteMap bookings={mapBookings} />
         </div>
 
         {/* Sidebar */}
@@ -134,9 +135,18 @@ export default function AgendaSection() {
                   </div>
                   <span className="text-[#c8a97e] text-xs font-inter font-medium">{b.slot}</span>
                 </div>
-                <p className="text-[#555] text-xs font-inter leading-snug pl-7">{b.address}</p>
+                {b.lat === 0 && b.lon === 0 ? (
+                  <p className="text-[#555] text-xs font-inter leading-snug pl-7 flex items-center gap-1">
+                    <span>📍</span><span className="text-[#666]">Sin dirección</span>
+                  </p>
+                ) : (
+                  <p className="text-[#555] text-xs font-inter leading-snug pl-7">{b.address}</p>
+                )}
                 <div className="flex items-center justify-between pl-7">
-                  <span className="text-[#444] text-xs font-inter">{svc?.label ?? b.serviceId} · {b.clientPhone}</span>
+                  <span className="text-[#444] text-xs font-inter">
+                    {svc?.label ?? (b.serviceId === 'manual' ? 'Manual' : b.serviceId)}
+                    {b.clientPhone ? ` · ${b.clientPhone}` : ''}
+                  </span>
                   <button
                     onClick={() => cancelBooking(b.token)}
                     disabled={cancelling === b.token}

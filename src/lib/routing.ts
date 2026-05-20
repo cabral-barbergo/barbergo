@@ -18,7 +18,7 @@ export function optimizeRoute(bookings: Booking[]): Booking[] {
 }
 
 export function routeTotalDistance(bookings: Booking[]): number {
-  const route = optimizeRoute(bookings)
+  const route = optimizeRoute(bookings).filter((b) => b.lat !== 0 || b.lon !== 0)
   let total = 0
   for (let i = 1; i < route.length; i++) {
     total += haversine(route[i - 1].lat, route[i - 1].lon, route[i].lat, route[i].lon)
@@ -185,10 +185,12 @@ export function getAvailableSlotsForDay(
   for (const block of blocks) {
     const blockBookings = dayBookings.filter((b) => block.includes((b.slot || '').toString().substring(0, 5)))
     // Project existing bookings' coords so rural clients compare from their polygon border
-    const projectedBlockBookings = blockBookings.map((b) => {
-      const eff = getEffectiveLocation(b.lat, b.lon, zone)
-      return { ...b, lat: eff.lat, lon: eff.lon }
-    })
+    const projectedBlockBookings = blockBookings
+      .filter((b) => b.lat !== 0 || b.lon !== 0)
+      .map((b) => {
+        const eff = getEffectiveLocation(b.lat, b.lon, zone)
+        return { ...b, lat: eff.lat, lon: eff.lon }
+      })
     for (const slot of block) {
       if (takenSet.has(slot) || blockedSet.has(slot)) continue
       const { ok } = canJoinBlock(block, projectedBlockBookings, slot, lat, lon)

@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import AgendaSection       from './sections/AgendaSection'
 import AvailabilitySection from './sections/AvailabilitySection'
 import BlockedDaysSection  from './sections/BlockedDaysSection'
+import CalendarSection     from './sections/CalendarSection'
 import ConfigSection       from './sections/ConfigSection'
 import ZoneSection         from './sections/ZoneSection'
 
-type Tab = 'agenda' | 'disponibilidad' | 'bloqueados' | 'configuracion' | 'zona'
+type Tab = 'agenda' | 'calendario' | 'disponibilidad' | 'bloqueados' | 'configuracion' | 'zona'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'agenda',          label: 'Agenda',             icon: '📅' },
+  { id: 'calendario',      label: 'Calendario',         icon: '🗓️' },
   { id: 'disponibilidad',  label: 'Disponibilidad',     icon: '🕐' },
   { id: 'bloqueados',      label: 'Días bloqueados',    icon: '🚫' },
   { id: 'configuracion',   label: 'Configuración',      icon: '⚙️' },
@@ -72,6 +74,7 @@ export default function AdminDashboard() {
       {/* Content */}
       <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full">
         {tab === 'agenda'          && <AgendaSection />}
+        {tab === 'calendario'      && <CalendarSection />}
         {tab === 'disponibilidad'  && <AvailabilitySection />}
         {tab === 'bloqueados'      && <BlockedDaysSection />}
         {tab === 'configuracion'   && <ConfigSection />}
