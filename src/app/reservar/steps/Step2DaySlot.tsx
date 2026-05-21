@@ -81,7 +81,7 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
         </div>
       )}
 
-      {initDone && days.map(({ date, slots, loading }) => {
+      {initDone && days.filter(({ slots, loading }) => loading || slots.length > 0).map(({ date, slots, loading }) => {
         const isSelected = selected?.date === date
         return (
           <div
