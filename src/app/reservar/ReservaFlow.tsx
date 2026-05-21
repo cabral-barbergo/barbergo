@@ -5,13 +5,12 @@ import type { Booking } from '@/lib/types'
 import StepIndicator from './components/StepIndicator'
 import SuccessScreen from './components/SuccessScreen'
 import Step1Location, { type LocationData } from './steps/Step1Location'
-import Step2Day from './steps/Step2Day'
-import Step3Slot from './steps/Step3Slot'
-import Step4Service from './steps/Step4Service'
-import Step5Form from './steps/Step5Form'
+import Step2DaySlot from './steps/Step2DaySlot'
+import Step3Service from './steps/Step4Service'
+import Step4Form from './steps/Step5Form'
 import BarberGoLogo from '@/components/BarberGoLogo'
 
-type Step = 1 | 2 | 3 | 4 | 5
+type Step = 1 | 2 | 3 | 4
 
 interface ReservaState {
   location: LocationData | null
@@ -68,53 +67,39 @@ export default function ReservaFlow() {
           )}
 
           {step === 2 && state.location && (
-            <Card>
-              <Step2Day
+            <div>
+              <Step2DaySlot
                 location={state.location}
-                onSelect={(date) => {
-                  patch({ date, slot: null })
+                onSelect={(date, slot) => {
+                  patch({ date, slot })
                   setStep(3)
                 }}
               />
               <BackButton onClick={() => setStep(1)} />
-            </Card>
+            </div>
           )}
 
-          {step === 3 && state.date && state.location && (
+          {step === 3 && (
             <Card>
-              <Step3Slot
-                date={state.date}
-                location={state.location}
-                onSelect={(slot) => {
-                  patch({ slot })
-                  setStep(4)
-                }}
+              <Step3Service
+                selected={state.serviceId}
+                onSelect={(serviceId) => patch({ serviceId })}
+                onConfirm={() => state.serviceId && setStep(4)}
               />
               <BackButton onClick={() => setStep(2)} />
             </Card>
           )}
 
-          {step === 4 && (
+          {step === 4 && state.date && state.slot && state.serviceId && state.location && (
             <Card>
-              <Step4Service
-                selected={state.serviceId}
-                onSelect={(serviceId) => patch({ serviceId })}
-                onConfirm={() => state.serviceId && setStep(5)}
-              />
-              <BackButton onClick={() => setStep(3)} />
-            </Card>
-          )}
-
-          {step === 5 && state.date && state.slot && state.serviceId && state.location && (
-            <Card>
-              <Step5Form
+              <Step4Form
                 date={state.date}
                 slot={state.slot}
                 serviceId={state.serviceId}
                 location={state.location}
                 onSuccess={(booking) => setConfirmedBooking(booking)}
               />
-              <BackButton onClick={() => setStep(4)} />
+              <BackButton onClick={() => setStep(3)} />
             </Card>
           )}
 

@@ -1,9 +1,9 @@
 'use client'
 
-const LABELS = ['Ubicación', 'Día', 'Horario', 'Servicio', 'Confirmar']
+const LABELS = ['Ubicación', 'Turno', 'Servicio', 'Confirmar']
 
 interface Props {
-  current: number // 1-5
+  current: number // 1-4
 }
 
 export default function StepIndicator({ current }: Props) {
