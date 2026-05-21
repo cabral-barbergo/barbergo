@@ -2,13 +2,11 @@
 
 import { useState } from 'react'
 import type { Booking } from '@/lib/types'
-import { SERVICES } from '@/lib/constants'
 import type { LocationData } from './Step1Location'
 
 interface Props {
   date: string
   slot: string
-  serviceId: string
   location: LocationData
   onSuccess: (booking: Booking) => void
 }
@@ -25,8 +23,7 @@ function isValidPhone(phone: string): boolean {
   return /^(\+?54)?9?\d{10}$/.test(d)
 }
 
-export default function Step5Form({ date, slot, serviceId, location, onSuccess }: Props) {
-  const service = SERVICES.find((s) => s.id === serviceId)!
+export default function Step5Form({ date, slot, location, onSuccess }: Props) {
   const [name, setName]   = useState('')
   const [phone, setPhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -50,7 +47,7 @@ export default function Step5Form({ date, slot, serviceId, location, onSuccess }
         body: JSON.stringify({
           date,
           slot,
-          serviceId,
+          serviceId: 'corte',
           clientName: name.trim(),
           clientPhone: phone.trim(),
           address: location.address,
@@ -82,7 +79,6 @@ export default function Step5Form({ date, slot, serviceId, location, onSuccess }
       <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-2">
         <p className="text-[#555] text-xs font-inter uppercase tracking-wide mb-3">Resumen del turno</p>
         <SummaryRow icon="📅" text={`${formatDate(date)} a las ${slot}`} />
-        <SummaryRow icon={service.icon} text={`${service.label} · ${service.duration} min · $${service.price.toLocaleString('es-AR')}`} />
         <SummaryRow icon="📍" text={location.address} />
       </div>
 

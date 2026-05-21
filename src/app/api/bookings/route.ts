@@ -25,8 +25,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { date, slot, clientName, clientPhone, address, lat, lon, serviceId } =
+  const { date, slot, clientName, clientPhone, address, lat, lon, serviceId: rawServiceId } =
     body as Record<string, unknown>
+
+  const serviceId = typeof rawServiceId === 'string' ? rawServiceId : 'corte'
 
   if (
     typeof date !== 'string' ||
@@ -35,11 +37,10 @@ export async function POST(request: Request) {
     typeof clientPhone !== 'string' ||
     typeof address !== 'string' ||
     typeof lat !== 'number' ||
-    typeof lon !== 'number' ||
-    typeof serviceId !== 'string'
+    typeof lon !== 'number'
   ) {
     return NextResponse.json(
-      { error: 'date, slot, clientName, clientPhone, address, lat, lon, serviceId are required' },
+      { error: 'date, slot, clientName, clientPhone, address, lat, lon are required' },
       { status: 400 }
     )
   }
