@@ -40,9 +40,8 @@ export default function Step5Form({ date, slot, location, onSuccess }: Props) {
 
     setSubmitting(true)
     setError(null)
-    console.error('[DEBUG] about to POST booking', { clientName: name.trim(), clientPhone: phone.trim(), date, slot })
     try {
-      const res = await fetch('https://barbergo-ten.vercel.app/api/bookings', {
+      const res = await fetch(`${window.location.origin}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
