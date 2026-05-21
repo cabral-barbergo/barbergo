@@ -54,6 +54,8 @@ function logResults(label: string, tos: string[], results: PromiseSettledResult<
 }
 
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
+  console.log('[notify] START clientPhone:', JSON.stringify(booking.clientPhone), 'len:', booking.clientPhone?.length ?? 'undefined')
+  console.log('[notify] PELUQUERO_PHONE:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
   const service = SERVICES.find((s) => s.id === booking.serviceId)
   const link    = `${process.env.NEXT_PUBLIC_URL}/turno/${booking.token}`
 
@@ -81,6 +83,7 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
     barberTo = ''
   }
 
+  console.log('[notify] clientTo (after toWA):', clientTo)
   console.log(`[notify] notifyBookingCreated client=${clientTo} barber=${barberTo}`)
 
   const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
