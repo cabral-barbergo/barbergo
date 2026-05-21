@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   const { date, slot, clientName, clientPhone, address, lat, lon, serviceId: rawServiceId } =
     body as Record<string, unknown>
 
+  console.log('[bookings POST] body:', { clientName, clientPhone, date, slot })
+
   const serviceId = typeof rawServiceId === 'string' ? rawServiceId : 'corte'
 
   if (
@@ -112,7 +114,8 @@ export async function POST(request: Request) {
 
     const booking = await createBooking({ date, slot, clientName, clientPhone, address, lat, lon, serviceId })
 
-    console.log('[notify] clientPhone:', booking.clientPhone)
+    console.log('[notify] clientPhone from booking object:', booking.clientPhone)
+    console.log('[notify] clientPhone from request body:', clientPhone)
     console.log('[notify] PELUQUERO_PHONE env:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
     console.log('[notify] TWILIO_SID env:', process.env.TWILIO_ACCOUNT_SID ? 'set' : 'NOT SET')
 
