@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Settings, Clock, CalendarX, Map } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Settings, Clock, CalendarX, Map, ChevronUp, ChevronDown, Check } from 'lucide-react'
 import AvailabilitySection from './AvailabilitySection'
 import BlockedDaysSection  from './BlockedDaysSection'
 import ZoneSection         from './ZoneSection'
@@ -23,33 +23,35 @@ function GeneralSettings() {
   const [saving,     setSaving]     = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [error,      setError]      = useState<string | null>(null)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/settings', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((data) => {
-        if (data.booking_window_days) setWindowDays(data.booking_window_days)
-      })
+      .then((data) => { if (data.booking_window_days) setWindowDays(data.booking_window_days) })
       .catch(() => setError('Error al cargar configuración'))
       .finally(() => setLoading(false))
   }, [])
 
-  async function handleSave() {
+  async function patchDays(next: number) {
+    if (saving) return
     setSaving(true)
     setSaved(false)
     setError(null)
+    setWindowDays(next)
     try {
       const res = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ booking_window_days: windowDays }),
+        body: JSON.stringify({ booking_window_days: next }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error ?? 'Error al guardar')
       }
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -67,39 +69,55 @@ function GeneralSettings() {
         Configuración general del sistema de reservas.
       </p>
 
-      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5 space-y-3">
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5 space-y-4">
         <div>
           <label className="text-white text-sm font-syne font-semibold block mb-1">
             Días de anticipación para reservas
           </label>
-          <p className="text-[#555] text-xs font-inter mb-3">
+          <p className="text-[#555] text-xs font-inter mb-4">
             Cuántos días laborales hacia adelante pueden reservar los clientes.
           </p>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={30}
-              value={windowDays}
-              onChange={(e) => setWindowDays(Math.min(30, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="w-24 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 text-center"
-            />
-            <span className="text-[#555] text-sm font-inter">días laborales</span>
+
+          {/* Vertical stepper */}
+          <div className="flex flex-col items-center mx-auto" style={{
+            background: '#191919',
+            border: '1px solid #2a2a2a',
+            borderRadius: 12,
+            padding: '0.75rem',
+            width: 'fit-content',
+          }}>
+            <button
+              onClick={() => patchDays(Math.min(30, windowDays + 1))}
+              disabled={saving || windowDays >= 30}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888] hover:text-[#c8a97e] disabled:opacity-30"
+            >
+              <ChevronUp size={22} />
+            </button>
+
+            <div className="flex items-center justify-center w-12 my-1 relative">
+              <span style={{ fontSize: '2rem', fontWeight: 700, color: '#c8a97e', lineHeight: 1 }}>
+                {windowDays}
+              </span>
+              {saved && (
+                <span className="absolute -right-5 text-emerald-400">
+                  <Check size={14} />
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => patchDays(Math.max(1, windowDays - 1))}
+              disabled={saving || windowDays <= 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888] hover:text-[#c8a97e] disabled:opacity-30"
+            >
+              <ChevronDown size={22} />
+            </button>
           </div>
+
+          <p className="text-[#555] text-xs font-inter text-center mt-2">días laborales</p>
         </div>
 
         {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
-
-        <div className="flex items-center gap-4 pt-1">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#c8a97e] hover:bg-[#dfc4a1] text-black font-bold font-syne rounded-xl px-5 py-2 text-sm transition-all disabled:opacity-50"
-          >
-            {saving ? 'Guardando…' : 'Guardar'}
-          </button>
-          {saved && <span className="text-emerald-400 text-xs font-inter">✓ Guardado</span>}
-        </div>
       </div>
     </div>
   )
