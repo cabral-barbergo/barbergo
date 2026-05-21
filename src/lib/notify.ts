@@ -45,17 +45,10 @@ async function send(to: string, body: string): Promise<void> {
 
 function logResults(label: string, tos: string[], results: PromiseSettledResult<void>[]): void {
   results.forEach((r, i) => {
-    if (r.status === 'fulfilled') {
-      // success already logged inside send()
+    if (r.status === 'rejected') {
+      console.error(`[notify] ${label} message[${i}] to=${tos[i]} failed:`, JSON.stringify(r.reason))
     } else {
-      const err = r.reason as Record<string, unknown>
-      console.error(
-        `[notify] ${label} message[${i}] failed to=${tos[i]}`,
-        `error=${err?.message ?? err}`,
-        `status=${err?.status ?? ''}`,
-        `code=${err?.code ?? ''}`,
-        `moreInfo=${err?.moreInfo ?? ''}`
-      )
+      console.log(`[notify] ${label} message[${i}] to=${tos[i]} sent ok`)
     }
   })
 }

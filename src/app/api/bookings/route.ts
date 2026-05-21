@@ -112,6 +112,10 @@ export async function POST(request: Request) {
 
     const booking = await createBooking({ date, slot, clientName, clientPhone, address, lat, lon, serviceId })
 
+    console.log('[notify] clientPhone:', booking.clientPhone)
+    console.log('[notify] PELUQUERO_PHONE env:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
+    console.log('[notify] TWILIO_SID env:', process.env.TWILIO_ACCOUNT_SID ? 'set' : 'NOT SET')
+
     waitUntil(
       notifyBookingCreated(booking).catch((err) => console.error('[notify] booking created:', err))
     )
