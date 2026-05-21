@@ -1,3 +1,4 @@
+// v2 - debug clientPhone
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
