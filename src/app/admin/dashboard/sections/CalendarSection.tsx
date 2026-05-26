@@ -5,7 +5,7 @@ import { Plus, Trash2, Check, X, User, MapPin } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
-type CalView = 'day' | 'week' | 'month'
+type CalView = 'day' | 'week'
 
 interface SlotState {
   slot: string
@@ -23,6 +23,14 @@ function toISO(d: Date): string {
   return d.toISOString().split('T')[0]
 }
 
+function toLocalISO(d: Date): string {
+  return (
+    d.getFullYear() +
+    '-' + String(d.getMonth() + 1).padStart(2, '0') +
+    '-' + String(d.getDate()).padStart(2, '0')
+  )
+}
+
 /** 0=Mon … 4=Fri, 5=Sat, 6=Sun */
 function dow(d: Date): number {
   const js = d.getDay()
@@ -33,18 +41,23 @@ function isWeekday(d: Date): boolean {
   return dow(d) < 5
 }
 
-function getMonStart(d: Date): Date {
-  const copy = new Date(d)
-  const diff = dow(copy)
-  copy.setDate(copy.getDate() - Math.min(diff, 4))
-  copy.setHours(0, 0, 0, 0)
-  return copy
-}
-
 function addDays(d: Date, n: number): Date {
   const copy = new Date(d)
   copy.setDate(copy.getDate() + n)
   return copy
+}
+
+/** Returns windowDays working days starting from today (inclusive). */
+function getAdminWeekDates(windowDays: number): string[] {
+  if (windowDays <= 0) return []
+  const result: string[] = []
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  while (result.length < windowDays) {
+    if (isWeekday(d)) result.push(toLocalISO(d))
+    if (result.length < windowDays) d.setDate(d.getDate() + 1)
+  }
+  return result
 }
 
 const MONTH_NAMES = [
@@ -58,33 +71,14 @@ function formatDay(d: Date): string {
   return `${DAY_SHORT[dow(d)]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
 }
 
-function getVisibleDates(view: CalView, current: Date): string[] {
-  if (view === 'day') {
-    return isWeekday(current) ? [toISO(current)] : []
+function weekRangeLabel(dates: string[]): string {
+  if (dates.length === 0) return ''
+  const first = new Date(dates[0] + 'T12:00:00')
+  const last  = new Date(dates[dates.length - 1] + 'T12:00:00')
+  if (first.getMonth() === last.getMonth()) {
+    return `${first.getDate()}–${last.getDate()} ${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`
   }
-  if (view === 'week') {
-    const mon = getMonStart(current)
-    return Array.from({ length: 5 }, (_, i) => toISO(addDays(mon, i)))
-  }
-  const year = current.getFullYear()
-  const month = current.getMonth()
-  const dates: string[] = []
-  const d = new Date(year, month, 1)
-  while (d.getMonth() === month) {
-    if (isWeekday(d)) dates.push(toISO(new Date(d)))
-    d.setDate(d.getDate() + 1)
-  }
-  return dates
-}
-
-function periodLabel(view: CalView, current: Date): string {
-  if (view === 'day') return formatDay(current)
-  if (view === 'week') {
-    const mon = getMonStart(current)
-    const fri = addDays(mon, 4)
-    return `${mon.getDate()}–${fri.getDate()} ${MONTH_NAMES[fri.getMonth()]} ${fri.getFullYear()}`
-  }
-  return `${MONTH_NAMES[current.getMonth()]} ${current.getFullYear()}`
+  return `${first.getDate()} ${MONTH_NAMES[first.getMonth()]} – ${last.getDate()} ${MONTH_NAMES[last.getMonth()]} ${last.getFullYear()}`
 }
 
 // ── geocode helper ────────────────────────────────────────────────
@@ -464,8 +458,9 @@ interface WeekViewProps {
 
 function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
   const slotSet = new Set<string>()
-  for (let i = 0; i < 5; i++) {
-    slotsData.find((d) => d.dayOfWeek === i)?.slots.filter((s) => s.isActive).forEach((s) => slotSet.add(s.slot))
+  for (const date of dates) {
+    const dayOfWeek = dow(new Date(date + 'T12:00:00'))
+    slotsData.find((d) => d.dayOfWeek === dayOfWeek)?.slots.filter((s) => s.isActive).forEach((s) => slotSet.add(s.slot))
   }
   const allTimes = Array.from(slotSet).sort()
 
@@ -502,10 +497,11 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
               >
                 {time}
               </td>
-              {dates.map((date, i) => {
-                const dayData  = slotsData.find((d) => d.dayOfWeek === i)
-                const isActive = dayData?.slots.find((s) => s.slot === time)?.isActive
-                const booking  = bookingsByDate[date]?.find((b) => b.slot === time)
+              {dates.map((date) => {
+                const dayOfWeek = dow(new Date(date + 'T12:00:00'))
+                const dayData   = slotsData.find((d) => d.dayOfWeek === dayOfWeek)
+                const isActive  = dayData?.slots.find((s) => s.slot === time)?.isActive
+                const booking   = bookingsByDate[date]?.find((b) => b.slot === time)
                 return (
                   <td key={date} className="px-1 py-1">
                     {isActive ? (
@@ -529,65 +525,6 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
   )
 }
 
-// ── month view ────────────────────────────────────────────────────
-
-interface MonthViewProps {
-  current: Date
-  bookingsByDate: Record<string, Booking[]>
-  onDayClick: (date: string) => void
-}
-
-function MonthView({ current, bookingsByDate, onDayClick }: MonthViewProps) {
-  const year  = current.getFullYear()
-  const month = current.getMonth()
-  const firstDay = new Date(year, month, 1)
-  const lastDay  = new Date(year, month + 1, 0)
-  const startOffset = dow(firstDay)
-  const cells: (Date | null)[] = Array(startOffset).fill(null)
-  for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-    cells.push(new Date(d))
-  }
-  while (cells.length % 7 !== 0) cells.push(null)
-
-  return (
-    <div>
-      <div className="grid grid-cols-7 mb-1">
-        {['L','M','X','J','V','S','D'].map((d) => (
-          <div key={d} className="text-center text-[10px] font-inter text-[#444] uppercase py-1">{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-px">
-        {cells.map((d, i) => {
-          if (!d) return <div key={i} className="bg-[#0e0e0e] rounded-lg h-16" />
-          const iso   = toISO(d)
-          const isWd  = isWeekday(d)
-          const count = bookingsByDate[iso]?.length ?? null
-          const isToday = iso === toISO(new Date())
-          return (
-            <button
-              key={iso}
-              onClick={() => isWd && onDayClick(iso)}
-              disabled={!isWd}
-              className={[
-                'rounded-lg h-16 flex flex-col items-center justify-center transition-colors',
-                isWd ? 'bg-[#111] hover:bg-[#1a1a1a] cursor-pointer' : 'bg-[#0e0e0e] opacity-30',
-                isToday ? 'ring-1 ring-[#c8a97e]/40' : '',
-              ].join(' ')}
-            >
-              <span className={`text-sm font-syne ${isToday ? 'text-[#c8a97e]' : 'text-white'}`}>{d.getDate()}</span>
-              {isWd && count !== null && (
-                <span className="text-[10px] font-inter text-[#666] mt-0.5">
-                  {count === 0 ? '—' : `${count} turno${count !== 1 ? 's' : ''}`}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ── main component ────────────────────────────────────────────────
 
 export default function CalendarSection() {
@@ -595,6 +532,7 @@ export default function CalendarSection() {
   const [currentDate,    setCurrentDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
   })
+  const [bookingWindow,  setBookingWindow]  = useState(5)
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, Booking[]>>({})
@@ -602,6 +540,15 @@ export default function CalendarSection() {
   const [editBooking,    setEditBooking]    = useState<Booking | null>(null)
 
   const fetchedRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then((r) => r.json())
+      .then((data: { booking_window_days: number }) => {
+        if (data.booking_window_days) setBookingWindow(data.booking_window_days)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/admin/availability-slots')
@@ -639,21 +586,28 @@ export default function CalendarSection() {
     fetchDates([date])
   }
 
-  const periodKey = `${view}:${toISO(currentDate)}`
+  const weekDates = getAdminWeekDates(bookingWindow)
+
+  const visibleDates = view === 'day'
+    ? (isWeekday(currentDate) ? [toISO(currentDate)] : [])
+    : weekDates
+
+  const periodKey = view === 'day'
+    ? `day:${toISO(currentDate)}`
+    : `week:${weekDates.join(',')}`
+
   useEffect(() => {
-    fetchDates(getVisibleDates(view, currentDate))
+    fetchDates(visibleDates)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodKey])
 
   function navigate(dir: 1 | -1) {
-    setCurrentDate((prev) => {
-      if (view === 'day')  return addDays(prev, dir)
-      if (view === 'week') return addDays(prev, dir * 7)
-      const d = new Date(prev); d.setMonth(d.getMonth() + dir); return d
-    })
+    setCurrentDate((prev) => addDays(prev, dir))
   }
 
-  const visibleDates = getVisibleDates(view, currentDate)
+  const headerLabel = view === 'day'
+    ? formatDay(currentDate)
+    : weekRangeLabel(weekDates)
 
   if (loadingSlots) {
     return (
@@ -671,7 +625,7 @@ export default function CalendarSection() {
       <div className="flex flex-col items-center gap-3">
         {/* View selector */}
         <div className="flex justify-center gap-4">
-          {(['day', 'week', 'month'] as CalView[]).map((v) => (
+          {(['day', 'week'] as CalView[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -681,15 +635,19 @@ export default function CalendarSection() {
               ].join(' ')}
               style={{ padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}
             >
-              {v === 'day' ? 'Día' : v === 'week' ? 'Semana' : 'Mes'}
+              {v === 'day' ? 'Día' : 'Semana'}
             </button>
           ))}
         </div>
-        {/* Date navigator — same width as button group */}
-        <div className="flex items-center justify-between" style={{ width: 'calc(3 * (1.5rem * 2 + 3ch) + 2 * 1rem)', minWidth: 280 }}>
-          <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
-          <span className="text-white text-sm font-inter text-center flex-1">{periodLabel(view, currentDate)}</span>
-          <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
+        {/* Date navigator */}
+        <div className="flex items-center justify-center gap-2" style={{ minWidth: 240 }}>
+          {view === 'day' && (
+            <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
+          )}
+          <span className="text-white text-sm font-inter text-center">{headerLabel}</span>
+          {view === 'day' && (
+            <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
+          )}
         </div>
       </div>
 
@@ -714,19 +672,11 @@ export default function CalendarSection() {
 
         {view === 'week' && (
           <WeekView
-            dates={visibleDates}
+            dates={weekDates}
             slotsData={slotsData}
             bookingsByDate={bookingsByDate}
             onAdd={(date, slot) => setAddModal({ date, slot })}
             onEdit={(booking) => setEditBooking(booking)}
-          />
-        )}
-
-        {view === 'month' && (
-          <MonthView
-            current={currentDate}
-            bookingsByDate={bookingsByDate}
-            onDayClick={(iso) => { setCurrentDate(new Date(iso + 'T12:00:00')); setView('day') }}
           />
         )}
       </div>
