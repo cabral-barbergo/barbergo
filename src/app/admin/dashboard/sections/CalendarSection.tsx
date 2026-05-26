@@ -435,7 +435,7 @@ function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
         const booking = bookings.find((b) => b.slot === s.slot)
         return (
           <div key={s.slot} className="flex items-center gap-3">
-            <span className="text-[#444] text-xs font-mono w-11 shrink-0">{s.slot}</span>
+            <span className="text-[#ede9e1] text-xs font-mono w-11 shrink-0">{s.slot}</span>
             <div className="flex-1">
               <SlotCell booking={booking} onAdd={() => onAdd(s.slot)} onEdit={() => booking && onEdit(booking)} />
             </div>
@@ -492,7 +492,7 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
           {allTimes.map((time) => (
             <tr key={time} className="border-t border-[#1a1a1a]">
               <td
-                className="text-[#444] text-[10px] font-mono pr-2 py-1 align-middle whitespace-nowrap bg-[#111]"
+                className="text-[#ede9e1] text-[10px] font-mono pr-2 py-1 align-middle whitespace-nowrap bg-[#111]"
                 style={{ position: 'sticky', left: 0, zIndex: 10 }}
               >
                 {time}
