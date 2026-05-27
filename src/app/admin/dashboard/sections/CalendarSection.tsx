@@ -528,10 +528,16 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
 // ── main component ────────────────────────────────────────────────
 
 export default function CalendarSection() {
-  const [view,           setView]        = useState<CalView>('week')
+  const [view,           setView]        = useState<CalView>('day')
   const [currentDate,    setCurrentDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
   })
+
+  useEffect(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    setView('day')
+    setCurrentDate(today)
+  }, [])
   const [bookingWindow,  setBookingWindow]  = useState(5)
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
