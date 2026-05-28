@@ -18,17 +18,24 @@ const SUBTABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
 // ── General settings section ──────────────────────────────────────
 
 function GeneralSettings() {
-  const [windowDays, setWindowDays] = useState<number>(5)
-  const [loading,    setLoading]    = useState(true)
-  const [saving,     setSaving]     = useState(false)
-  const [saved,      setSaved]      = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [windowDays,  setWindowDays]  = useState<number>(5)
+  const [precioCorte, setPrecioCorte] = useState<number>(2500)
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [saved,       setSaved]       = useState(false)
+  const [savingPrice, setSavingPrice] = useState(false)
+  const [savedPrice,  setSavedPrice]  = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const savedTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedPriceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/settings', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((data) => { if (data.booking_window_days) setWindowDays(data.booking_window_days) })
+      .then((data) => {
+        if (data.booking_window_days) setWindowDays(data.booking_window_days)
+        if (data.precio_corte != null) setPrecioCorte(data.precio_corte)
+      })
       .catch(() => setError('Error al cargar configuración'))
       .finally(() => setLoading(false))
   }, [])
@@ -59,6 +66,32 @@ function GeneralSettings() {
     }
   }
 
+  async function patchPrice(next: number) {
+    if (savingPrice) return
+    setSavingPrice(true)
+    setSavedPrice(false)
+    setError(null)
+    setPrecioCorte(next)
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ precio_corte: next }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Error al guardar')
+      }
+      setSavedPrice(true)
+      if (savedPriceTimerRef.current) clearTimeout(savedPriceTimerRef.current)
+      savedPriceTimerRef.current = setTimeout(() => setSavedPrice(false), 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSavingPrice(false)
+    }
+  }
+
   if (loading) {
     return <div className="h-20 bg-[#1a1a1a] rounded-xl animate-pulse" />
   }
@@ -69,7 +102,8 @@ function GeneralSettings() {
         Configuración general del sistema de reservas.
       </p>
 
-      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5 space-y-4">
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5 space-y-6">
+        {/* Días de anticipación */}
         <div>
           <label className="text-white text-sm font-syne font-semibold block mb-1">
             Días de anticipación para reservas
@@ -78,7 +112,6 @@ function GeneralSettings() {
             Cuántos días laborales hacia adelante pueden reservar los clientes.
           </p>
 
-          {/* Vertical stepper */}
           <div className="flex flex-col items-center mx-auto" style={{
             background: '#191919',
             border: '1px solid #2a2a2a',
@@ -115,6 +148,53 @@ function GeneralSettings() {
           </div>
 
           <p className="text-[#555] text-xs font-inter text-center mt-2">días laborales</p>
+        </div>
+
+        {/* Precio del corte */}
+        <div>
+          <label className="text-white text-sm font-syne font-semibold block mb-1">
+            Precio del corte
+          </label>
+          <p className="text-[#555] text-xs font-inter mb-4">
+            Precio base por servicio, usado para calcular la facturación diaria.
+          </p>
+
+          <div className="flex flex-col items-center mx-auto" style={{
+            background: '#191919',
+            border: '1px solid #2a2a2a',
+            borderRadius: 12,
+            padding: '0.75rem',
+            width: 'fit-content',
+          }}>
+            <button
+              onClick={() => patchPrice(precioCorte + 100)}
+              disabled={savingPrice}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888] hover:text-[#c8a97e] disabled:opacity-30"
+            >
+              <ChevronUp size={22} />
+            </button>
+
+            <div className="flex items-center justify-center my-1 relative" style={{ minWidth: '5rem' }}>
+              <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#c8a97e', lineHeight: 1 }}>
+                ${precioCorte.toLocaleString('es-AR')}
+              </span>
+              {savedPrice && (
+                <span className="absolute -right-5 text-emerald-400">
+                  <Check size={14} />
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => patchPrice(Math.max(0, precioCorte - 100))}
+              disabled={savingPrice || precioCorte <= 0}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-[#888] hover:text-[#c8a97e] disabled:opacity-30"
+            >
+              <ChevronDown size={22} />
+            </button>
+          </div>
+
+          <p className="text-[#555] text-xs font-inter text-center mt-2">por corte</p>
         </div>
 
         {error && <p className="text-red-400 text-xs font-inter">{error}</p>}

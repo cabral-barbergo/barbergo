@@ -25,29 +25,31 @@ function todayISO(): string {
 }
 
 export default function AgendaSection() {
-  const [date,      setDate]      = useState(todayISO())
-  const [data,      setData]      = useState<AdminBookingsResponse | null>(null)
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
-  const [cancelling, setCancelling] = useState<string | null>(null)
+  const [date,        setDate]        = useState(todayISO())
+  const [data,        setData]        = useState<AdminBookingsResponse | null>(null)
+  const [loading,     setLoading]     = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [cancelling,  setCancelling]  = useState<string | null>(null)
+  const [precioCorte, setPrecioCorte] = useState<number>(2500)
 
   // Mobile chip selector state
   const [chipDays,  setChipDays]  = useState<string[]>([])
   const chipScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function loadChipDays() {
+    async function loadSettings() {
       const [settingsRes, blockedRes] = await Promise.all([
         fetch('/api/admin/settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
         fetch('/api/blocked-dates',  { cache: 'no-store' }).then((r) => r.json()).catch(() => []),
       ])
       const windowDays: number = settingsRes.booking_window_days ?? 5
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
+      if (settingsRes.precio_corte != null) setPrecioCorte(settingsRes.precio_corte)
       // Include today + window days of weekdays
       const allDays = [todayISO(), ...getAvailableBookingDates(windowDays, blockedDates)]
       setChipDays(allDays)
     }
-    loadChipDays()
+    loadSettings()
   }, [])
 
   const fetchDay = useCallback(async (d: string) => {
@@ -94,10 +96,7 @@ export default function AgendaSection() {
 
   const bookings    = data?.bookings ?? []
   const mapBookings = bookings.filter((b) => b.lat !== 0 || b.lon !== 0)
-  const revenue     = bookings.reduce((s, b) => {
-    const svc = SERVICES.find((sv) => sv.id === b.serviceId)
-    return s + (svc?.price ?? 0)
-  }, 0)
+  const revenue     = precioCorte * bookings.length
 
   return (
     <div className="space-y-5">

@@ -371,3 +371,28 @@ export async function updateServiceZone(
     .eq('name', 'main')
   if (error) throw error
 }
+
+// ── precio_corte via settings table ─────────────────────────────────
+// Requires: INSERT INTO settings (key, value) VALUES ('precio_corte', '2500') ON CONFLICT (key) DO NOTHING;
+
+export async function getPrecioCorte(): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'precio_corte')
+      .single()
+    if (error) return 2500
+    const val = parseInt((data as { value: string }).value, 10)
+    return isNaN(val) ? 2500 : val
+  } catch {
+    return 2500
+  }
+}
+
+export async function setPrecioCorte(price: number): Promise<void> {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key: 'precio_corte', value: String(price) }, { onConflict: 'key' })
+  if (error) throw error
+}
