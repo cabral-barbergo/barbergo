@@ -12,7 +12,6 @@ interface Props {
 interface DayData {
   date: string
   slots: string[]
-  loading: boolean
 }
 
 const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -24,24 +23,20 @@ function formatDayLabel(iso: string): string {
 }
 
 export default function Step2DaySlot({ location, onSelect }: Props) {
+  const [loading,  setLoading]  = useState(true)
   const [days,     setDays]     = useState<DayData[]>([])
-  const [initDone, setInitDone] = useState(false)
   const [selected, setSelected] = useState<{ date: string; slot: string } | null>(null)
 
-  // 1. Load settings + blocked dates, build date list
   useEffect(() => {
     async function init() {
       const [settingsRes, blockedRes] = await Promise.all([
         fetch('/api/admin/settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
         fetch('/api/blocked-dates',  { cache: 'no-store' }).then((r) => r.json()).catch(() => []),
       ])
-      const windowDays: number    = settingsRes.booking_window_days ?? 5
+      const windowDays: number     = settingsRes.booking_window_days ?? 5
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
       const dates = getAvailableBookingDates(windowDays, blockedDates)
-      setDays(dates.map((date) => ({ date, slots: [], loading: true })))
-      setInitDone(true)
 
-      // 2. Fetch availability for all dates in parallel
       const results = await Promise.all(
         dates.map(async (date) => {
           try {
@@ -56,11 +51,16 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
           }
         })
       )
-      setDays(results.map(({ date, slots }) => ({ date, slots, loading: false })))
+
+      setDays(results)
+      setLoading(false)
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Only the first 2 days that have at least 1 available slot
+  const daysWithSlots = days.filter((d) => d.slots.length > 0).slice(0, 2)
 
   function handleSlotClick(date: string, slot: string) {
     setSelected({ date, slot })
@@ -73,93 +73,72 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
         <p className="text-[#666] text-sm font-inter">Seleccioná día y horario</p>
       </div>
 
-      {!initDone && (
+      {loading && (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="h-28 bg-[#1a1a1a] rounded-xl animate-pulse" />
           ))}
         </div>
       )}
 
-      {initDone && (() => {
-        const allLoaded = days.every((d) => !d.loading)
-        const daysWithSlots = days.filter((d) => !d.loading && d.slots.length > 0).slice(0, 2)
-        const noAvailability = allLoaded && daysWithSlots.length === 0
+      {!loading && daysWithSlots.length === 0 && (
+        <div className="text-center py-10 px-4">
+          <p className="font-inter text-[#888] text-sm leading-relaxed">
+            No hay turnos disponibles en tu zona por el momento.<br />
+            Intentá más tarde o contactá al peluquero.
+          </p>
+        </div>
+      )}
 
-        if (noAvailability) {
-          return (
-            <div className="text-center py-10 px-4">
-              <p className="font-inter text-[#888] text-sm leading-relaxed">
-                No hay turnos disponibles en tu zona por el momento.<br />
-                Intentá más tarde o contactá al peluquero.
-              </p>
-            </div>
-          )
-        }
-
-        const displayDays = !allLoaded
-          ? days.filter((d) => d.loading)
-          : daysWithSlots
-
-        return displayDays.map(({ date, slots, loading }) => {
-          const isSelected = selected?.date === date
-          return (
-            <div
-              key={date}
-              style={{
-                background: '#111',
-                border: `1px solid ${isSelected ? '#c8a97e' : '#1e1e1e'}`,
-                borderRadius: 12,
-                padding: '1rem',
-                marginBottom: '0.75rem',
-                transition: 'border-color 0.15s',
-              }}
+      {!loading && daysWithSlots.map(({ date, slots }) => {
+        const isSelected = selected?.date === date
+        return (
+          <div
+            key={date}
+            style={{
+              background: '#111',
+              border: `1px solid ${isSelected ? '#c8a97e' : '#1e1e1e'}`,
+              borderRadius: 12,
+              padding: '1rem',
+              marginBottom: '0.75rem',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <p
+              className="font-syne"
+              style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.75rem' }}
             >
-              <p
-                className="font-syne"
-                style={{ fontSize: '0.9rem', color: '#888', marginBottom: '0.75rem' }}
-              >
-                {formatDayLabel(date)}
-              </p>
+              {formatDayLabel(date)}
+            </p>
 
-              {loading ? (
-                <div className="flex gap-2 flex-wrap">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-8 w-16 bg-[#1a1a1a] rounded-lg animate-pulse" />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {slots.map((slot) => {
-                    const isSlotSelected = isSelected && selected?.slot === slot
-                    return (
-                      <button
-                        key={slot}
-                        onClick={() => handleSlotClick(date, slot)}
-                        className="font-inter transition-all"
-                        style={{
-                          padding: '0.4rem 0.75rem',
-                          borderRadius: 8,
-                          fontSize: '0.85rem',
-                          background: isSlotSelected ? 'rgba(200,169,126,0.25)' : 'rgba(200,169,126,0.08)',
-                          border: isSlotSelected ? '2px solid #c8a97e' : '1.5px solid #c8a97e',
-                          color: '#c8a97e',
-                          fontWeight: isSlotSelected ? 700 : 400,
-                          boxShadow: isSlotSelected ? '0 0 8px rgba(200,169,126,0.3)' : 'none',
-                        }}
-                      >
-                        {slot}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+            <div className="flex flex-wrap gap-2">
+              {slots.map((slot) => {
+                const isSlotSelected = isSelected && selected?.slot === slot
+                return (
+                  <button
+                    key={slot}
+                    onClick={() => handleSlotClick(date, slot)}
+                    className="font-inter transition-all"
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: 8,
+                      fontSize: '0.85rem',
+                      background: isSlotSelected ? 'rgba(200,169,126,0.25)' : 'rgba(200,169,126,0.08)',
+                      border: isSlotSelected ? '2px solid #c8a97e' : '1.5px solid #c8a97e',
+                      color: '#c8a97e',
+                      fontWeight: isSlotSelected ? 700 : 400,
+                      boxShadow: isSlotSelected ? '0 0 8px rgba(200,169,126,0.3)' : 'none',
+                    }}
+                  >
+                    {slot}
+                  </button>
+                )
+              })}
             </div>
-          )
-        })
-      })()}
+          </div>
+        )
+      })}
 
-      {/* Fixed continue button */}
       {selected && (
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3 bg-gradient-to-t from-[#0a0a0a] to-transparent z-40">
           <button
