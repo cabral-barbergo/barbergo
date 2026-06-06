@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
+  // CSRF: require JSON content-type
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    return NextResponse.json({ error: 'Unsupported Media Type' }, { status: 415 })
+  }
+
+  // CSRF: origin check
+  const origin = request.headers.get('origin')
+  const host = request.headers.get('host')
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (origin) {
+    const allowed = appUrl ? origin === appUrl : (host ? origin.includes(host) : false)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -8,9 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { address } = body as { address?: string }
-  if (!address?.trim()) {
+  const { address: rawAddress } = body as { address?: string }
+  if (!rawAddress || typeof rawAddress !== 'string' || !rawAddress.trim()) {
     return NextResponse.json({ error: 'address is required' }, { status: 400 })
+  }
+  const address = rawAddress.trim()
+  if (address.length > 300) {
+    return NextResponse.json({ error: 'Invalid input', details: 'address must not exceed 300 characters' }, { status: 400 })
   }
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY

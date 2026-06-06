@@ -26,7 +26,6 @@ function WeeklyScheduleTab() {
 
   useEffect(() => {
     fetch('/api/admin/availability-slots', {
-      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''}` },
       cache: 'no-store',
     })
       .then((r) => r.json())
@@ -43,7 +42,6 @@ function WeeklyScheduleTab() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''}`,
         },
         body: JSON.stringify({ dayOfWeek, slot, isActive: !currentActive }),
       })

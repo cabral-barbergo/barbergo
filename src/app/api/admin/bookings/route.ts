@@ -4,7 +4,7 @@ export const revalidate = 0
 import { NextResponse } from 'next/server'
 import { getBookingsByDate, isSlotTaken, createBooking } from '@/lib/db/bookings'
 import { optimizeRoute, routeTotalDistance } from '@/lib/routing'
-import { isAdminAuthorized } from '@/lib/adminAuth'
+import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 
 export async function GET(request: Request) {
   if (!isAdminAuthorized(request)) {
@@ -37,6 +37,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

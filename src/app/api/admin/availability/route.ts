@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isAdminAuthorized } from '@/lib/adminAuth'
+import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
@@ -39,6 +39,9 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

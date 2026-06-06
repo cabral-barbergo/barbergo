@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
-import { ADMIN_COOKIE, COOKIE_MAX_AGE, expectedCookieValue } from '@/lib/adminAuth'
+import { ADMIN_COOKIE, COOKIE_MAX_AGE, expectedCookieValue, csrfCheck } from '@/lib/adminAuth'
 
 export async function POST(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   let body: unknown
   try { body = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -15,8 +18,8 @@ export async function POST(request: Request) {
   const res = NextResponse.json({ ok: true })
   res.cookies.set(ADMIN_COOKIE, expectedCookieValue(), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'strict',
     maxAge: COOKIE_MAX_AGE,
     path: '/',
   })

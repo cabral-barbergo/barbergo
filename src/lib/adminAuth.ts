@@ -17,11 +17,34 @@ function parseCookie(header: string | null, name: string): string | undefined {
   return match?.[1]
 }
 
-/** Returns true for Bearer token OR valid admin cookie. */
+/** Returns true if the request carries a valid admin cookie. */
 export function isAdminAuthorized(request: Request): boolean {
-  const bearer = request.headers.get('Authorization')
-  if (bearer === `Bearer ${process.env.ADMIN_SECRET}`) return true
-
   const cookieVal = parseCookie(request.headers.get('cookie'), ADMIN_COOKIE)
   return !!cookieVal && cookieVal === expectedCookieValue()
+}
+
+/**
+ * CSRF check for mutating requests (POST/PATCH/DELETE).
+ * Returns null if the request is allowed, or a NextResponse with 415/403 if not.
+ */
+export function csrfCheck(request: Request): { status: number; error: string } | null {
+  const method = request.method.toUpperCase()
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return null
+
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    return { status: 415, error: 'Unsupported Media Type' }
+  }
+
+  const origin = request.headers.get('origin')
+  if (origin) {
+    const host = request.headers.get('host')
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const allowed = appUrl ? origin === appUrl : (host ? origin.includes(host) : false)
+    if (!allowed) {
+      return { status: 403, error: 'Forbidden' }
+    }
+  }
+
+  return null
 }

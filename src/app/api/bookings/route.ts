@@ -19,6 +19,23 @@ import { jsToAppDay } from '@/lib/slots'
 import { notifyBookingCreated } from '@/lib/notify'
 
 export async function POST(request: Request) {
+  // CSRF: require JSON content-type
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    return NextResponse.json({ error: 'Unsupported Media Type' }, { status: 415 })
+  }
+
+  // CSRF: origin check
+  const origin = request.headers.get('origin')
+  const host = request.headers.get('host')
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (origin) {
+    const allowed = appUrl ? origin === appUrl : (host ? origin.includes(host) : false)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -26,31 +43,75 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { date, slot, clientName, clientPhone, address, lat, lon, serviceId: rawServiceId } =
-    body as Record<string, unknown>
+  const raw = body as Record<string, unknown>
+
+  // ── Input validation ────────────────────────────────────────────
+  const rawClientName = raw.clientName
+  const rawClientPhone = raw.clientPhone
+  const rawDate = raw.date
+  const rawSlot = raw.slot
+  const rawLat = raw.lat
+  const rawLon = raw.lon
+  const rawAddress = raw.address
+
+  // clientName: required, string, 2-100 chars, letters/spaces only
+  if (typeof rawClientName !== 'string') {
+    return NextResponse.json({ error: 'Invalid input', details: 'clientName is required' }, { status: 400 })
+  }
+  const clientName = rawClientName.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '').trim()
+  if (clientName.length < 2 || clientName.length > 100) {
+    return NextResponse.json({ error: 'Invalid input', details: 'clientName must be 2-100 characters' }, { status: 400 })
+  }
+
+  // clientPhone: required, digits only, 8-15 chars
+  if (typeof rawClientPhone !== 'string') {
+    return NextResponse.json({ error: 'Invalid input', details: 'clientPhone is required' }, { status: 400 })
+  }
+  const clientPhone = rawClientPhone.replace(/\D/g, '')
+  if (clientPhone.length < 8 || clientPhone.length > 15) {
+    return NextResponse.json({ error: 'Invalid input', details: 'clientPhone must be 8-15 digits' }, { status: 400 })
+  }
+
+  // date: required, YYYY-MM-DD, today or future
+  if (typeof rawDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    return NextResponse.json({ error: 'Invalid input', details: 'date must be YYYY-MM-DD' }, { status: 400 })
+  }
+  const date = rawDate
+  const today = new Date().toISOString().split('T')[0]
+  if (date < today) {
+    return NextResponse.json({ error: 'Invalid input', details: 'date must be today or in the future' }, { status: 400 })
+  }
+
+  // slot: required, HH:MM
+  if (typeof rawSlot !== 'string' || !/^\d{2}:\d{2}$/.test(rawSlot)) {
+    return NextResponse.json({ error: 'Invalid input', details: 'slot must be HH:MM' }, { status: 400 })
+  }
+  const slot = rawSlot
+
+  // lat/lon: required numbers in range
+  if (typeof rawLat !== 'number' || typeof rawLon !== 'number') {
+    return NextResponse.json({ error: 'Invalid input', details: 'lat and lon must be numbers' }, { status: 400 })
+  }
+  const lat = rawLat
+  const lon = rawLon
+  if (lat < -90 || lat > 90) {
+    return NextResponse.json({ error: 'Invalid input', details: 'lat must be between -90 and 90' }, { status: 400 })
+  }
+  if (lon < -180 || lon > 180) {
+    return NextResponse.json({ error: 'Invalid input', details: 'lon must be between -180 and 180' }, { status: 400 })
+  }
+
+  // address: required string, max 300 chars
+  if (typeof rawAddress !== 'string') {
+    return NextResponse.json({ error: 'Invalid input', details: 'address is required' }, { status: 400 })
+  }
+  const address = rawAddress.trim().slice(0, 300)
+
+  // ────────────────────────────────────────────────────────────────
 
   console.log('[bookings POST] body:', { clientName, clientPhone, date, slot })
 
-  const serviceId = typeof rawServiceId === 'string' ? rawServiceId : 'corte'
-
-  if (
-    typeof date !== 'string' ||
-    typeof slot !== 'string' ||
-    typeof clientName !== 'string' ||
-    typeof clientPhone !== 'string' ||
-    typeof address !== 'string' ||
-    typeof lat !== 'number' ||
-    typeof lon !== 'number'
-  ) {
-    return NextResponse.json(
-      { error: 'date, slot, clientName, clientPhone, address, lat, lon are required' },
-      { status: 400 }
-    )
-  }
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 })
-  }
+  const serviceId = typeof raw.serviceId === 'string' ? raw.serviceId : 'corte'
 
   const jsDay = new Date(`${date}T12:00:00`).getDay()
   if (jsDay === 0 || jsDay === 6) {

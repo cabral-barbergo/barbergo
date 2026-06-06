@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isAdminAuthorized } from '@/lib/adminAuth'
+import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 import { getBlockedDays, blockDay, unblockDay } from '@/lib/db/bookings'
 
 export async function GET(request: Request) {
@@ -15,6 +15,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -40,6 +43,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

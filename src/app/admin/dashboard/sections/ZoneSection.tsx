@@ -5,7 +5,6 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 
 type LatLon = [number, number]
 
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''
 
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry', stylers: [{ color: '#1a1a1a' }] },
@@ -104,7 +103,6 @@ export default function ZoneSection() {
       // Load existing zone from API
       try {
         const res = await fetch('/api/admin/zone', {
-          headers: { Authorization: `Bearer ${ADMIN_SECRET}` },
           cache: 'no-store',
         })
         if (res.ok) {
@@ -172,7 +170,6 @@ export default function ZoneSection() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${ADMIN_SECRET}`,
         },
         body: JSON.stringify({ center: centerRef.current, polygon: polygonPathRef.current }),
       })

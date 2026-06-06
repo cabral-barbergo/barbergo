@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isAdminAuthorized } from '@/lib/adminAuth'
+import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 import { getAllSlotsForDay, toggleAvailabilitySlot, applySlotRange } from '@/lib/db/bookings'
 
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -25,6 +25,9 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrf = csrfCheck(request)
+  if (csrf) return NextResponse.json({ error: csrf.error }, { status: csrf.status })
+
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
