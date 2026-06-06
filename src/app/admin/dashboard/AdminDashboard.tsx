@@ -27,7 +27,7 @@ export default function AdminDashboard() {
       <header className="border-b border-[#1a1a1a] px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarberGoLogo size={20} />
-          <span className="font-syne font-bold text-white text-lg">BarberGo</span>
+          <span className="font-syne font-bold text-white text-lg">Seba Cabral</span>
           <span className="ml-2 text-[#333] text-xs font-inter border border-[#222] rounded px-2 py-0.5">Admin</span>
         </div>
         <button

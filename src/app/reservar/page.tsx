@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import ReservaFlow from './ReservaFlow'
 
 export const metadata: Metadata = {
-  title: 'Reservar turno | BarberGo',
+  title: 'Reservar turno | Seba Cabral',
 }
 
 export default function ReservarPage() {

@@ -99,7 +99,7 @@ function Header() {
     <header className="flex items-center justify-center py-6 px-4 border-b border-[#1a1a1a]">
       <a href="/" className="flex items-center gap-2">
         <BarberGoLogo size={20} />
-        <span className="font-syne font-bold text-white text-lg tracking-wide">BarberGo</span>
+        <span className="font-syne font-bold text-white text-lg tracking-wide">Seba Cabral</span>
       </a>
     </header>
   )

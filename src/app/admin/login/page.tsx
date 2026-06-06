@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <BarberGoLogo size={40} />
-          <h1 className="font-syne font-bold text-white text-2xl mt-3">BarberGo Admin</h1>
+          <h1 className="font-syne font-bold text-white text-2xl mt-3">Seba Cabral Admin</h1>
           <p className="text-[#444] text-sm font-inter mt-1">Acceso restringido</p>
         </div>
 

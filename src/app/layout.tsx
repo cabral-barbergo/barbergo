@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'BarberGo',
+  title: 'Seba Cabral',
   description: 'Reservá tu turno de peluquería a domicilio',
 }
 
