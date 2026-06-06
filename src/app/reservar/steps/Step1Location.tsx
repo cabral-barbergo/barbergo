@@ -111,7 +111,7 @@ export default function Step1Location({ onConfirm }: Props) {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="font-syne text-xl font-bold text-white mb-1">¿Dónde te encontramos?</h2>
+        <h2 className="font-syne text-xl font-bold text-white mb-1">¿Dónde te encuentro?</h2>
         <p className="text-[#666] text-sm font-inter">Ingresá tu dirección o usá tu ubicación actual</p>
       </div>
 
