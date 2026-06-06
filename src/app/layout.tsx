@@ -24,11 +24,19 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Seba Cabral',
   description: 'Reservá tu turno de peluquería a domicilio',
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${syne.variable} ${inter.variable}`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body className="bg-[#0a0a0a] text-white antialiased">
         {children}
       </body>
