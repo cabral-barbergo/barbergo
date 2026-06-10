@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapPinOff, CalendarDays } from 'lucide-react'
+import { MapPinOff, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import { SERVICES } from '@/lib/constants'
 import { getAvailableBookingDates } from '@/lib/utils'
@@ -46,8 +46,7 @@ export default function AgendaSection() {
   const [error,       setError]       = useState<string | null>(null)
   const [cancelling,  setCancelling]  = useState<string | null>(null)
   const [precioCorte, setPrecioCorte] = useState<number>(2500)
-  const [chipDays,    setChipDays]    = useState<string[]>([])
-  const [customDate,  setCustomDate]  = useState<string | null>(null)
+  const [chipDays, setChipDays] = useState<string[]>([])
 
   useEffect(() => {
     async function loadSettings() {
@@ -98,34 +97,63 @@ export default function AgendaSection() {
     }
   }
 
+  function shiftDay(delta: number) {
+    const d = new Date(date + 'T12:00:00')
+    d.setDate(d.getDate() + delta)
+    const next = toLocalISO(d)
+    setDate(next)
+    fetchDay(next)
+  }
+
   const bookings    = data?.bookings ?? []
   const mapBookings = bookings.filter((b) => b.lat !== 0 || b.lon !== 0)
   const revenue     = precioCorte * bookings.length
 
   return (
     <div className="space-y-3">
-      {/* Calendar picker — label wraps a native input so iOS tap hits it directly */}
-      <label
-        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl font-inter text-sm cursor-pointer relative overflow-hidden"
-        style={{ background: '#1f1f1f', border: '1px solid #2a2a2a', color: '#888' }}
-      >
-        <CalendarDays size={15} className="shrink-0 pointer-events-none" />
-        <span className="pointer-events-none">
-          {customDate ? formatDateButton(customDate) : 'Seleccionar fecha'}
-        </span>
-        <input
-          type="date"
-          value={customDate ?? ''}
-          onChange={(e) => {
-            const v = e.target.value
-            if (!v) return
-            setCustomDate(v)
-            setDate(v)
-            fetchDay(v)
-          }}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
-      </label>
+      {/* Date selector: ← [📅 fecha] → */}
+      <div className="flex items-center w-full gap-1">
+        <button
+          type="button"
+          onClick={() => shiftDay(-1)}
+          className="p-2 transition-colors rounded-lg"
+          style={{ color: '#888' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#c8a97e')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
+        >
+          <ChevronLeft size={18} />
+        </button>
+
+        <label
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-inter text-sm cursor-pointer relative overflow-hidden"
+          style={{ background: '#1f1f1f', border: '1px solid #2a2a2a', color: '#ede9e1' }}
+        >
+          <CalendarDays size={15} className="shrink-0 pointer-events-none" />
+          <span className="pointer-events-none font-medium">{formatDateButton(date)}</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => {
+              const v = e.target.value
+              if (!v) return
+              setDate(v)
+              fetchDay(v)
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={() => shiftDay(1)}
+          className="p-2 transition-colors rounded-lg"
+          style={{ color: '#888' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#c8a97e')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
 
       {/* Day chips — 5 fixed, no scroll */}
       {chipDays.length > 0 && (
@@ -137,7 +165,7 @@ export default function AgendaSection() {
               <button
                 key={d}
                 type="button"
-                onClick={() => { setCustomDate(null); setDate(d); fetchDay(d) }}
+                onClick={() => { setDate(d); fetchDay(d) }}
                 className="flex-1 flex flex-col items-center rounded-xl py-2 transition-all font-inter"
                 style={{
                   background:  isSelected ? '#c8a97e' : '#1f1f1f',
