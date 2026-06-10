@@ -18,6 +18,126 @@ const SUBTABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
 
 // ── General settings section ──────────────────────────────────────
 
+function ChangePasswordSection() {
+  const [current,  setCurrent]  = useState('')
+  const [next,     setNext]     = useState('')
+  const [confirm,  setConfirm]  = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+  const [success,  setSuccess]  = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSuccess(false)
+
+    if (!current || !next || !confirm) {
+      setError('Todos los campos son requeridos')
+      return
+    }
+    if (next.length < 8) {
+      setError('La nueva contraseña debe tener al menos 8 caracteres')
+      return
+    }
+    if (next !== confirm) {
+      setError('La nueva contraseña y la confirmación no coinciden')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al cambiar la contraseña')
+      setSuccess(true)
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar la contraseña')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: '#0a0a0a',
+    border: '1px solid #2a2a2a',
+    borderRadius: 8,
+    padding: '0.5rem 0.75rem',
+    color: '#fff',
+    fontSize: '0.875rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+  }
+
+  return (
+    <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white text-sm font-syne font-semibold">Cambiar contraseña</h3>
+        {success && (
+          <span className="flex items-center gap-1 text-emerald-400 text-xs font-inter">
+            <Check size={13} /> Contraseña actualizada
+          </span>
+        )}
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="text-[#555] text-xs font-inter block mb-1">Contraseña actual</label>
+          <input
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            style={inputStyle}
+            autoComplete="current-password"
+          />
+        </div>
+        <div>
+          <label className="text-[#555] text-xs font-inter block mb-1">Nueva contraseña</label>
+          <input
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            style={inputStyle}
+            autoComplete="new-password"
+          />
+        </div>
+        <div>
+          <label className="text-[#555] text-xs font-inter block mb-1">Confirmar nueva contraseña</label>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            style={inputStyle}
+            autoComplete="new-password"
+          />
+        </div>
+        {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
+        <button
+          type="submit"
+          disabled={loading}
+          className="font-inter font-semibold text-sm transition-colors"
+          style={{
+            background: loading ? '#2a2a2a' : 'rgba(200,169,126,0.12)',
+            border: '1px solid #c8a97e',
+            color: loading ? '#555' : '#c8a97e',
+            borderRadius: 8,
+            padding: '0.5rem 1rem',
+            cursor: loading ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {loading ? 'Guardando…' : 'Cambiar contraseña'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 function GeneralSettings() {
   const [windowDays,  setWindowDays]  = useState<number>(5)
   const [precioCorte, setPrecioCorte] = useState<number>(2500)
@@ -128,6 +248,8 @@ function GeneralSettings() {
 
         {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
       </div>
+
+      <ChangePasswordSection />
     </div>
   )
 }

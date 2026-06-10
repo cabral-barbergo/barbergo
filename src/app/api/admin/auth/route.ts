@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ADMIN_COOKIE, COOKIE_MAX_AGE, expectedCookieValue, csrfCheck } from '@/lib/adminAuth'
+import { getAdminPassword } from '@/app/api/admin/change-password/route'
 
 export async function POST(request: Request) {
   const csrf = csrfCheck(request)
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
   }
 
   const { password } = body as { password?: string }
-  if (!password || password !== process.env.ADMIN_SECRET) {
+  const adminPassword = await getAdminPassword()
+  if (!password || password !== adminPassword) {
     return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 })
   }
 
