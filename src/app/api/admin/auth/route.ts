@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ADMIN_COOKIE, COOKIE_MAX_AGE, expectedCookieValue, csrfCheck } from '@/lib/adminAuth'
-import { getAdminPassword } from '@/app/api/admin/change-password/route'
+import { getAdminPassword } from '@/lib/db/settings'
 
 export async function POST(request: Request) {
   const csrf = csrfCheck(request)

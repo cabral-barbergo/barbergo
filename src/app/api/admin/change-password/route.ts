@@ -3,19 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
-
-export async function getAdminPassword(): Promise<string> {
-  try {
-    const { data } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'admin_password')
-      .maybeSingle()
-    return data?.value ?? process.env.ADMIN_SECRET ?? ''
-  } catch {
-    return process.env.ADMIN_SECRET ?? ''
-  }
-}
+import { getAdminPassword } from '@/lib/db/settings'
 
 export async function POST(request: Request) {
   const csrf = csrfCheck(request)
