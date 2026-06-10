@@ -111,7 +111,7 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
               {formatDayLabel(date)}
             </p>
 
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
               {slots.map((slot) => {
                 const isSlotSelected = isSelected && selected?.slot === slot
                 return (
@@ -120,9 +120,10 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
                     onClick={() => handleSlotClick(date, slot)}
                     className="font-inter transition-all"
                     style={{
-                      padding: '0.4rem 0.75rem',
+                      height: 36,
                       borderRadius: 8,
                       fontSize: '0.85rem',
+                      textAlign: 'center',
                       background: isSlotSelected ? 'rgba(200,169,126,0.25)' : 'rgba(200,169,126,0.08)',
                       border: isSlotSelected ? '2px solid #c8a97e' : '1.5px solid #c8a97e',
                       color: '#c8a97e',
