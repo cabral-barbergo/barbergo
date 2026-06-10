@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { MapPinOff } from 'lucide-react'
+import { MapPinOff, CalendarDays } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import { SERVICES } from '@/lib/constants'
 import { getAvailableBookingDates } from '@/lib/utils'
@@ -24,6 +24,23 @@ function todayISO(): string {
   return toLocalISO(new Date())
 }
 
+const DAY_ABBR   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const MONTH_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+const DAY_LONG   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
+
+function chipLabel(iso: string, index: number): string {
+  if (index === 0) return 'Hoy'
+  if (index === 1) return 'Mañana'
+  const d = new Date(iso + 'T12:00:00')
+  return `${DAY_ABBR[d.getDay()]} ${d.getDate()}`
+}
+
+function formatDateButton(iso: string): string {
+  if (iso === todayISO()) return 'Hoy'
+  const d = new Date(iso + 'T12:00:00')
+  return `${DAY_LONG[d.getDay()]} ${d.getDate()} de ${MONTH_LONG[d.getMonth()]}`
+}
+
 export default function AgendaSection() {
   const [date,        setDate]        = useState(todayISO())
   const [data,        setData]        = useState<AdminBookingsResponse | null>(null)
@@ -31,10 +48,8 @@ export default function AgendaSection() {
   const [error,       setError]       = useState<string | null>(null)
   const [cancelling,  setCancelling]  = useState<string | null>(null)
   const [precioCorte, setPrecioCorte] = useState<number>(2500)
-
-  // Mobile chip selector state
-  const [chipDays,  setChipDays]  = useState<string[]>([])
-  const chipScrollRef = useRef<HTMLDivElement>(null)
+  const [chipDays,    setChipDays]    = useState<string[]>([])
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function loadSettings() {
@@ -42,12 +57,9 @@ export default function AgendaSection() {
         fetch('/api/admin/settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
         fetch('/api/blocked-dates',  { cache: 'no-store' }).then((r) => r.json()).catch(() => []),
       ])
-      const windowDays: number = settingsRes.booking_window_days ?? 5
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
       if (settingsRes.precio_corte != null) setPrecioCorte(settingsRes.precio_corte)
-      // Include today + window days of weekdays
-      const allDays = [todayISO(), ...getAvailableBookingDates(windowDays, blockedDates)]
-      setChipDays(allDays)
+      setChipDays([todayISO(), ...getAvailableBookingDates(4, blockedDates)])
     }
     loadSettings()
   }, [])
@@ -56,7 +68,7 @@ export default function AgendaSection() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/admin/bookings?date=${d}`)
+      const res  = await fetch(`/api/admin/bookings?date=${d}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setData(json)
@@ -67,14 +79,19 @@ export default function AgendaSection() {
     }
   }, [])
 
-  function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setDate(e.target.value)
-    fetchDay(e.target.value)
-  }
-
-  // Load today on first mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchDay(todayISO()) }, [])
+
+  function openPicker() {
+    const input = dateInputRef.current
+    if (!input) return
+    const withPicker = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof withPicker.showPicker === 'function') {
+      withPicker.showPicker()
+    } else {
+      input.click()
+    }
+  }
 
   async function cancelBooking(token: string) {
     setCancelling(token)
@@ -99,60 +116,60 @@ export default function AgendaSection() {
   const revenue     = precioCorte * bookings.length
 
   return (
-    <div className="space-y-5">
-      {/* Mobile: horizontal chip selector */}
-      {chipDays.length > 0 && (
-        <div
-          ref={chipScrollRef}
-          className="md:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    <div className="space-y-3">
+      {/* Calendar picker button */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={openPicker}
+          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl font-inter text-sm transition-colors text-left"
+          style={{ background: '#1f1f1f', border: '1px solid #2a2a2a', color: '#888' }}
         >
-          {chipDays.map((d) => {
-            const [, mm, dd] = d.split('-')
-            const isSelected = d === date
-            const hasBookings = (data?.bookings ?? []).length > 0 && d === date
+          <CalendarDays size={15} className="shrink-0" />
+          <span className="capitalize">{formatDateButton(date)}</span>
+        </button>
+        <input
+          ref={dateInputRef}
+          type="date"
+          value={date}
+          onChange={(e) => { setDate(e.target.value); fetchDay(e.target.value) }}
+          className="absolute inset-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+        />
+      </div>
+
+      {/* Day chips — 5 fixed, no scroll */}
+      {chipDays.length > 0 && (
+        <div className="flex gap-1.5">
+          {chipDays.map((d, i) => {
+            const isSelected  = d === date
+            const hasBookings = isSelected && bookings.length > 0
             return (
               <button
                 key={d}
+                type="button"
                 onClick={() => { setDate(d); fetchDay(d) }}
-                className={[
-                  'flex flex-col items-center rounded-full px-3.5 py-2 shrink-0 transition-all',
-                  isSelected
-                    ? 'bg-[#c8a97e] text-black'
-                    : 'bg-[#1f1f1f] text-[#888] border border-[#2a2a2a]',
-                ].join(' ')}
+                className="flex-1 flex flex-col items-center rounded-xl py-2 transition-all font-inter"
+                style={{
+                  background:  isSelected ? '#c8a97e' : '#1f1f1f',
+                  border:      `1px solid ${isSelected ? '#c8a97e' : '#2a2a2a'}`,
+                  color:       isSelected ? '#000' : '#888',
+                  fontWeight:  isSelected ? 700 : 400,
+                  minWidth:    0,
+                }}
               >
-                <span className={`text-sm font-bold font-syne leading-none ${isSelected ? 'text-black' : 'text-[#aaa]'}`}>
-                  {parseInt(dd)}/{parseInt(mm)}
-                </span>
-                <span className="mt-1 w-1 h-1 rounded-full" style={{ background: hasBookings ? (isSelected ? '#000' : '#c8a97e') : 'transparent' }} />
+                <span className="text-xs leading-none truncate px-1">{chipLabel(d, i)}</span>
+                <span
+                  className="mt-1 w-1 h-1 rounded-full"
+                  style={{ background: hasBookings ? (isSelected ? '#000' : '#c8a97e') : 'transparent' }}
+                />
               </button>
             )
           })}
         </div>
       )}
 
-      {/* Desktop: date input */}
-      <div className="hidden md:flex items-center gap-3">
-        <label className="text-[#555] text-xs font-inter uppercase tracking-wide shrink-0">Fecha</label>
-        <input
-          type="date"
-          value={date}
-          onChange={handleDateChange}
-          className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg px-3 py-1.5 text-sm font-inter text-white focus:outline-none focus:border-[#c8a97e]/60 transition-all"
-        />
-        <button
-          onClick={() => fetchDay(date)}
-          disabled={loading}
-          className="text-xs font-inter text-[#c8a97e] hover:text-[#dfc4a1] transition-colors disabled:opacity-50"
-        >
-          {loading ? '…' : 'Actualizar'}
-        </button>
-      </div>
-
-      {error && (
-        <div className="text-red-400 text-sm font-inter">{error}</div>
-      )}
+      {error && <div className="text-red-400 text-sm font-inter">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* Map */}
@@ -162,14 +179,12 @@ export default function AgendaSection() {
 
         {/* Sidebar */}
         <div className="lg:col-span-2 space-y-3">
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-2">
-            <Stat label="Turnos"   value={String(bookings.length)} />
-            <Stat label="Km"       value={data ? `${data.totalDistanceKm.toFixed(1)}` : '—'} />
-            <Stat label="Factura"  value={revenue > 0 ? `$${(revenue / 1000).toFixed(1)}k` : '—'} />
+            <Stat label="Turnos"  value={String(bookings.length)} />
+            <Stat label="Km"      value={data ? `${data.totalDistanceKm.toFixed(1)}` : '—'} />
+            <Stat label="Factura" value={revenue > 0 ? `$${(revenue / 1000).toFixed(1)}k` : '—'} />
           </div>
 
-          {/* Booking list */}
           {loading && (
             <div className="space-y-2">
               {[1,2,3].map(i => <div key={i} className="h-16 bg-[#1a1a1a] rounded-lg animate-pulse" />)}
@@ -183,10 +198,7 @@ export default function AgendaSection() {
           {!loading && bookings.map((b, i) => {
             const svc = SERVICES.find((s) => s.id === b.serviceId)
             return (
-              <div
-                key={b.id}
-                className="bg-[#1a1a1a] border border-[#252525] rounded-xl px-4 py-3 space-y-1.5"
-              >
+              <div key={b.id} className="bg-[#1a1a1a] border border-[#252525] rounded-xl px-4 py-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#c8a97e] text-black text-[10px] font-bold font-syne flex items-center justify-center shrink-0">
@@ -198,7 +210,8 @@ export default function AgendaSection() {
                 </div>
                 {b.lat === 0 && b.lon === 0 ? (
                   <p className="text-[#555] text-xs font-inter leading-snug pl-7 flex items-center gap-1">
-                    <MapPinOff size={11} className="text-[#555]" /><span className="text-[#666]">Sin dirección</span>
+                    <MapPinOff size={11} className="text-[#555]" />
+                    <span className="text-[#666]">Sin dirección</span>
                   </p>
                 ) : (
                   <p className="text-[#555] text-xs font-inter leading-snug pl-7">{b.address}</p>
