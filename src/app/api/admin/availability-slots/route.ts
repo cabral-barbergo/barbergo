@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
 import { getAllSlotsForDay, toggleAvailabilitySlot, applySlotRange } from '@/lib/db/bookings'
 
-const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
+const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 export async function GET(request: Request) {
   if (!isAdminAuthorized(request)) {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   try {
     const days = await Promise.all(
-      [0, 1, 2, 3, 4].map(async (day) => ({
+      [0, 1, 2, 3, 4, 5].map(async (day) => ({
         dayOfWeek: day,
         dayName: DAY_NAMES[day],
         slots: await getAllSlotsForDay(day),
