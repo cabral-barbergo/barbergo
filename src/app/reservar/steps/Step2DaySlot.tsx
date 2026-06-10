@@ -67,7 +67,7 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
   }
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-4 pb-4">
       <div className="text-center mb-2">
         <h2 className="font-syne text-xl font-bold text-white mb-1">Elegí tu turno</h2>
         <p className="text-[#666] text-sm font-inter">Seleccioná día y horario</p>
