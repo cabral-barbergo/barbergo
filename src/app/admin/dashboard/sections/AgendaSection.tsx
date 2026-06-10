@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MapPinOff, CalendarDays } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import { SERVICES } from '@/lib/constants'
@@ -24,9 +24,8 @@ function todayISO(): string {
   return toLocalISO(new Date())
 }
 
-const DAY_ABBR   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
-const MONTH_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const DAY_LONG   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
+const DAY_ABBR  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const MONTH_ABR = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 function chipLabel(iso: string, index: number): string {
   if (index === 0) return 'Hoy'
@@ -36,9 +35,8 @@ function chipLabel(iso: string, index: number): string {
 }
 
 function formatDateButton(iso: string): string {
-  if (iso === todayISO()) return 'Hoy'
   const d = new Date(iso + 'T12:00:00')
-  return `${DAY_LONG[d.getDay()]} ${d.getDate()} de ${MONTH_LONG[d.getMonth()]}`
+  return `${DAY_ABBR[d.getDay()]} ${d.getDate()} ${MONTH_ABR[d.getMonth()]}`
 }
 
 export default function AgendaSection() {
@@ -49,7 +47,7 @@ export default function AgendaSection() {
   const [cancelling,  setCancelling]  = useState<string | null>(null)
   const [precioCorte, setPrecioCorte] = useState<number>(2500)
   const [chipDays,    setChipDays]    = useState<string[]>([])
-  const dateInputRef = useRef<HTMLInputElement>(null)
+  const [customDate,  setCustomDate]  = useState<string | null>(null)
 
   useEffect(() => {
     async function loadSettings() {
@@ -82,17 +80,6 @@ export default function AgendaSection() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchDay(todayISO()) }, [])
 
-  function openPicker() {
-    const input = dateInputRef.current
-    if (!input) return
-    const withPicker = input as HTMLInputElement & { showPicker?: () => void }
-    if (typeof withPicker.showPicker === 'function') {
-      withPicker.showPicker()
-    } else {
-      input.click()
-    }
-  }
-
   async function cancelBooking(token: string) {
     setCancelling(token)
     try {
@@ -117,26 +104,28 @@ export default function AgendaSection() {
 
   return (
     <div className="space-y-3">
-      {/* Calendar picker button */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={openPicker}
-          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl font-inter text-sm transition-colors text-left"
-          style={{ background: '#1f1f1f', border: '1px solid #2a2a2a', color: '#888' }}
-        >
-          <CalendarDays size={15} className="shrink-0" />
-          <span className="capitalize">{formatDateButton(date)}</span>
-        </button>
+      {/* Calendar picker — label wraps a native input so iOS tap hits it directly */}
+      <label
+        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl font-inter text-sm cursor-pointer relative overflow-hidden"
+        style={{ background: '#1f1f1f', border: '1px solid #2a2a2a', color: '#888' }}
+      >
+        <CalendarDays size={15} className="shrink-0 pointer-events-none" />
+        <span className="pointer-events-none">
+          {customDate ? formatDateButton(customDate) : 'Seleccionar fecha'}
+        </span>
         <input
-          ref={dateInputRef}
           type="date"
-          value={date}
-          onChange={(e) => { setDate(e.target.value); fetchDay(e.target.value) }}
-          className="absolute inset-0 opacity-0 pointer-events-none"
-          tabIndex={-1}
+          value={customDate ?? ''}
+          onChange={(e) => {
+            const v = e.target.value
+            if (!v) return
+            setCustomDate(v)
+            setDate(v)
+            fetchDay(v)
+          }}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-      </div>
+      </label>
 
       {/* Day chips — 5 fixed, no scroll */}
       {chipDays.length > 0 && (
@@ -148,7 +137,7 @@ export default function AgendaSection() {
               <button
                 key={d}
                 type="button"
-                onClick={() => { setDate(d); fetchDay(d) }}
+                onClick={() => { setCustomDate(null); setDate(d); fetchDay(d) }}
                 className="flex-1 flex flex-col items-center rounded-xl py-2 transition-all font-inter"
                 style={{
                   background:  isSelected ? '#c8a97e' : '#1f1f1f',
