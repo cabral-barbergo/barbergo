@@ -35,7 +35,8 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
       ])
       const windowDays: number     = settingsRes.booking_window_days ?? 5
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
-      const dates = getAvailableBookingDates(windowDays, blockedDates)
+      const inactiveDays: number[] = [0,1,2,3,4,5].filter((n) => settingsRes[`day_active_${n}`] === false)
+      const dates = getAvailableBookingDates(windowDays, blockedDates, inactiveDays)
 
       const results = await Promise.all(
         dates.map(async (date) => {

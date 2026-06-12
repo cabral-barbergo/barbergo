@@ -38,7 +38,7 @@ function dow(d: Date): number {
 }
 
 function isWeekday(d: Date): boolean {
-  return dow(d) < 5
+  return dow(d) <= 5
 }
 
 function addDays(d: Date, n: number): Date {
@@ -426,8 +426,8 @@ function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin slots activos para este día.</div>
   }
   const jsDay = new Date(date + 'T12:00:00').getDay()
-  if (jsDay === 0 || jsDay === 6) {
-    return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
+  if (jsDay === 0) {
+    return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los domingos.</div>
   }
   return (
     <div className="space-y-1.5 max-w-sm">

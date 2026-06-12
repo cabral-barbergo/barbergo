@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getBookingsByDate, getActiveSlots, getBlockedSlots, getBlockedDays, getServiceZone } from '@/lib/db/bookings'
 import { getAvailableSlotsForDay, getEffectiveLocation } from '@/lib/routing'
 import { jsToAppDay } from '@/lib/slots'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -33,6 +34,16 @@ export async function GET(request: Request) {
   }
 
   const appDay = jsToAppDay(jsDay)
+
+  // Check if this day is disabled in settings
+  const { data: dayRow } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', `day_active_${appDay}`)
+    .single()
+  if (dayRow && dayRow.value === 'false') {
+    return NextResponse.json({ slots: [], isBlocked: true, reason: 'Día no disponible' })
+  }
 
   try {
     const [activeSlots, blockedSlots, bookings, blockedDays, zone] = await Promise.all([

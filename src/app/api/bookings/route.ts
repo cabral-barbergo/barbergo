@@ -114,8 +114,8 @@ export async function POST(request: Request) {
   const serviceId = typeof raw.serviceId === 'string' ? raw.serviceId : 'corte'
 
   const jsDay = new Date(`${date}T12:00:00`).getDay()
-  if (jsDay === 0 || jsDay === 6) {
-    return NextResponse.json({ error: 'No hay turnos disponibles los fines de semana' }, { status: 409 })
+  if (jsDay === 0) {
+    return NextResponse.json({ error: 'No hay turnos disponibles los domingos' }, { status: 409 })
   }
   const appDay = jsToAppDay(jsDay)
 
