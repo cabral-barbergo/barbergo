@@ -27,8 +27,8 @@ export async function GET(request: Request) {
   }
 
   const jsDay = new Date(`${date}T12:00:00`).getDay()
-  // Weekends (0=Sun, 6=Sat) have no slots
-  if (jsDay === 0 || jsDay === 6) {
+  // Sunday (0) has no slots; Saturday (6) is allowed
+  if (jsDay === 0) {
     return NextResponse.json({ slots: [], isBlocked: false })
   }
 

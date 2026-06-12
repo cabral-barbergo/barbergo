@@ -13,7 +13,7 @@ export function getAvailableBookingDates(windowDays: number, blockedDates: strin
   while (result.length < windowDays) {
     d.setDate(d.getDate() + 1)
     const jsDay = d.getDay()
-    if (jsDay === 0 || jsDay === 6) continue
+    if (jsDay === 0) continue
     const iso = toLocalISO(d)
     if (blocked.has(iso)) continue
     result.push(iso)
