@@ -401,7 +401,7 @@ function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
     <button
       onClick={onAdd}
       className={[
-        'w-full bg-[#141414] border border-dashed border-[#2a2a2a] rounded-lg text-xs font-inter text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left',
+        'w-full bg-[#141414] border border-dashed border-[#2a2a2a] rounded-lg text-xs font-inter text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex items-center justify-center',
         compact ? 'px-2 py-1' : 'px-3 py-2',
       ].join(' ')}
     >
@@ -470,17 +470,17 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
 
   return (
     <div className="overflow-x-auto">
-      <table className="border-collapse" style={{ minWidth: 520 }}>
+      <table className="border-collapse" style={{ minWidth: 520, tableLayout: 'fixed' }}>
         <thead>
           <tr>
             <th
-              className="w-12 bg-[#111]"
-              style={{ position: 'sticky', left: 0, zIndex: 20 }}
+              className="bg-[#111]"
+              style={{ width: 60, minWidth: 60, position: 'sticky', left: 0, zIndex: 20 }}
             />
             {dates.map((date) => {
               const d = new Date(date + 'T12:00:00')
               return (
-                <th key={date} className="text-center pb-2">
+                <th key={date} className="text-center pb-2" style={{ width: 100, minWidth: 100, maxWidth: 100 }}>
                   <p className="text-[#666] text-[10px] font-inter uppercase">{DAY_SHORT[dow(d)]}</p>
                   <p className="text-white text-sm font-syne font-semibold">{d.getDate()}</p>
                 </th>
