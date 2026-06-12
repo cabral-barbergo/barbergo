@@ -38,8 +38,9 @@ export default function Step2Day({ location, onSelect }: Props) {
 
       const windowDays: number  = settingsRes.booking_window_days ?? 5
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
+      const inactiveDays: number[] = [0,1,2,3,4,5].filter((n) => settingsRes[`day_active_${n}`] === false)
 
-      const computed = getAvailableBookingDates(windowDays, blockedDates)
+      const computed = getAvailableBookingDates(windowDays, blockedDates, inactiveDays)
       setDays(computed)
       setStatuses(Object.fromEntries(computed.map((d) => [d, { loading: true, available: 0 }])))
       setInitDone(true)

@@ -55,8 +55,9 @@ export default function AgendaSection() {
         fetch('/api/blocked-dates',  { cache: 'no-store' }).then((r) => r.json()).catch(() => []),
       ])
       const blockedDates: string[] = Array.isArray(blockedRes) ? blockedRes : []
+      const inactiveDays: number[] = [0,1,2,3,4,5].filter((n) => settingsRes[`day_active_${n}`] === false)
       if (settingsRes.precio_corte != null) setPrecioCorte(settingsRes.precio_corte)
-      setChipDays([todayISO(), ...getAvailableBookingDates(4, blockedDates)])
+      setChipDays([todayISO(), ...getAvailableBookingDates(4, blockedDates, inactiveDays)])
     }
     loadSettings()
   }, [])

@@ -65,7 +65,7 @@ const MONTH_NAMES = [
   'julio','agosto','septiembre','octubre','noviembre','diciembre',
 ]
 
-const DAY_SHORT = ['Lun','Mar','Mié','Jue','Vie']
+const DAY_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
 function formatDay(d: Date): string {
   return `${DAY_SHORT[dow(d)]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
