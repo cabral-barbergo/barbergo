@@ -1,6 +1,18 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { Plus, Trash2, Check, X, User, MapPin, GripVertical } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
@@ -15,16 +27,6 @@ interface SlotState {
 interface DaySlotData {
   dayOfWeek: number
   slots: SlotState[]
-}
-
-interface DragHandlers {
-  draggingBooking: Booking | null
-  dropTarget: { date: string; slot: string } | null
-  onDragStart: (booking: Booking) => void
-  onDragEnd: () => void
-  onDragEnter: (date: string, slot: string) => void
-  onDragLeave: () => void
-  onDrop: (date: string, slot: string) => void
 }
 
 // ── date utilities ────────────────────────────────────────────────
@@ -116,11 +118,11 @@ interface AddModalProps {
 }
 
 function AddModal({ date, slot, onClose, onBooked }: AddModalProps) {
-  const [clientName,   setClientName]   = useState('')
-  const [address,      setAddress]      = useState('')
-  const [freshCoords,  setFreshCoords]  = useState<{ lat: number; lon: number } | null>(null)
-  const [submitting,   setSubmitting]   = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
+  const [clientName,  setClientName]  = useState('')
+  const [address,     setAddress]     = useState('')
+  const [freshCoords, setFreshCoords] = useState<{ lat: number; lon: number } | null>(null)
+  const [submitting,  setSubmitting]  = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
 
   async function handleConfirm() {
     if (!clientName.trim()) { setError('El nombre es requerido'); return }
@@ -316,7 +318,6 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
 
         {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
 
-        {/* Delete confirm */}
         {confirmDelete ? (
           <div className="bg-red-950/30 border border-red-500/30 rounded-lg px-4 py-3 space-y-2">
             <p className="text-red-400 text-xs font-inter">¿Eliminar este turno?</p>
@@ -367,88 +368,111 @@ function EditModal({ booking, onClose, onSaved, onDeleted }: EditModalProps) {
   )
 }
 
-// ── slot cell ─────────────────────────────────────────────────────
-
-interface SlotCellProps {
-  booking?: Booking
-  onAdd?: () => void
-  onEdit?: () => void
-  compact?: boolean
-  date?: string
-  slot?: string
-  drag?: DragHandlers
-}
+// ── draggable booking cell ─────────────────────────────────────────
 
 const shortAddress = (address: string) => address.split(',')[0].trim()
 
-function SlotCell({ booking, onAdd, onEdit, compact, date, slot, drag }: SlotCellProps) {
-  const isDraggingThis = drag?.draggingBooking?.id === booking?.id
-  const isDragging     = drag != null && drag.draggingBooking != null
-  const isTarget       = drag?.dropTarget?.date === date && drag?.dropTarget?.slot === slot
+interface DraggableBookingCellProps {
+  booking: Booking
+  onEdit: () => void
+  compact?: boolean
+}
 
-  if (booking) {
-    const addr = !compact && booking.address ? shortAddress(booking.address) : null
-    return (
-      <button
-        onClick={isDraggingThis ? undefined : onEdit}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.effectAllowed = 'move'
-          drag?.onDragStart(booking)
-        }}
-        onDragEnd={() => drag?.onDragEnd()}
-        className={[
-          'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
-          compact ? 'px-2 py-1 text-xs truncate' : '',
-          isDraggingThis ? 'opacity-50' : '',
-          isDragging && !isDraggingThis ? 'cursor-not-allowed' : '',
-        ].join(' ')}
-        style={{
-          ...(!compact ? { padding: '0.75rem 1rem' } : {}),
-          cursor: isDraggingThis ? 'grabbing' : isDragging ? 'not-allowed' : 'grab',
-        }}
-      >
-        {compact ? (
-          <span className="flex items-center gap-1 min-w-0">
-            <GripVertical size={12} className="text-[#666] shrink-0 pointer-events-none" />
-            <span className="text-[#c8a97e] truncate">{booking.clientName}</span>
-          </span>
-        ) : (
-          <>
-            <span className="flex items-center gap-1.5 font-semibold text-[#ede9e1] truncate" style={{ fontSize: '1rem' }}>
-              <GripVertical size={12} className="text-[#666] shrink-0 pointer-events-none" />
-              {booking.clientName}
-            </span>
-            {addr && (
-              <span className="block truncate text-[#c8a97e] mt-0.5" style={{ fontSize: '0.85rem' }}>
-                {addr}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-    )
-  }
+function DraggableBookingCell({ booking, onEdit, compact }: DraggableBookingCellProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: booking.id,
+    data: { booking },
+  })
 
-  // Empty slot — acts as drop zone when dragging
+  const addr = !compact && booking.address ? shortAddress(booking.address) : null
+
   return (
-    <button
-      onClick={isDragging ? undefined : onAdd}
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-      onDragEnter={(e) => { e.preventDefault(); if (date && slot) drag?.onDragEnter(date, slot) }}
-      onDragLeave={() => drag?.onDragLeave()}
-      onDrop={(e) => { e.preventDefault(); if (date && slot) drag?.onDrop(date, slot) }}
+    <div
+      ref={setNodeRef}
+      onClick={onEdit}
+      {...listeners}
+      {...attributes}
       className={[
-        'w-full rounded-lg text-xs font-inter transition-all flex items-center justify-center',
-        compact ? 'px-2 py-1' : 'px-3 py-2',
-        isTarget
-          ? 'border-2 border-dashed border-[#c8a97e] bg-[rgba(200,169,126,0.1)]'
-          : 'bg-[#141414] border border-dashed border-[#2a2a2a] text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5',
+        'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f] cursor-grab active:cursor-grabbing select-none',
+        compact ? 'px-2 py-1 text-xs' : '',
+        isDragging ? 'opacity-40' : '',
       ].join(' ')}
+      style={{
+        ...(!compact ? { padding: '0.75rem 1rem' } : {}),
+        touchAction: 'none',
+      }}
     >
-      {!isDragging && <Plus size={12} className="pointer-events-none" />}
-    </button>
+      {compact ? (
+        <span className="flex items-center gap-1 min-w-0 truncate">
+          <GripVertical size={12} className="text-[#666] shrink-0" />
+          <span className="text-[#c8a97e] truncate">{booking.clientName}</span>
+        </span>
+      ) : (
+        <>
+          <span className="flex items-center gap-1.5 font-semibold text-[#ede9e1] truncate" style={{ fontSize: '1rem' }}>
+            <GripVertical size={12} className="text-[#666] shrink-0" />
+            {booking.clientName}
+          </span>
+          {addr && (
+            <span className="block truncate text-[#c8a97e] mt-0.5" style={{ fontSize: '0.85rem' }}>
+              {addr}
+            </span>
+          )}
+        </>
+      )}
+    </div>
   )
+}
+
+// ── droppable empty slot ──────────────────────────────────────────
+
+interface DroppableEmptySlotProps {
+  date: string
+  slot: string
+  onAdd: () => void
+  compact?: boolean
+}
+
+function DroppableEmptySlot({ date, slot, onAdd, compact }: DroppableEmptySlotProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${date}|${slot}`,
+    data: { date, slot },
+  })
+
+  return (
+    <div ref={setNodeRef}>
+      <button
+        onClick={onAdd}
+        className={[
+          'w-full rounded-lg text-xs font-inter transition-all flex items-center justify-center',
+          compact ? 'px-2 py-1' : 'px-3 py-2',
+          isOver
+            ? 'border-2 border-dashed border-[#c8a97e] bg-[rgba(200,169,126,0.1)]'
+            : 'bg-[#141414] border border-dashed border-[#2a2a2a] text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5',
+        ].join(' ')}
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  )
+}
+
+// ── slot cell router ──────────────────────────────────────────────
+
+interface SlotCellProps {
+  booking?: Booking
+  onAdd: () => void
+  onEdit: () => void
+  compact?: boolean
+  date: string
+  slot: string
+}
+
+function SlotCell({ booking, onAdd, onEdit, compact, date, slot }: SlotCellProps) {
+  if (booking) {
+    return <DraggableBookingCell booking={booking} onEdit={onEdit} compact={compact} />
+  }
+  return <DroppableEmptySlot date={date} slot={slot} onAdd={onAdd} compact={compact} />
 }
 
 // ── day view ──────────────────────────────────────────────────────
@@ -459,10 +483,9 @@ interface DayViewProps {
   bookings: Booking[]
   onAdd: (slot: string) => void
   onEdit: (booking: Booking) => void
-  drag: DragHandlers
 }
 
-function DayView({ date, slots, bookings, onAdd, onEdit, drag }: DayViewProps) {
+function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
   const active = slots.filter((s) => s.isActive)
   if (active.length === 0) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin slots activos para este día.</div>
@@ -485,7 +508,6 @@ function DayView({ date, slots, bookings, onAdd, onEdit, drag }: DayViewProps) {
                 onEdit={() => booking && onEdit(booking)}
                 date={date}
                 slot={s.slot}
-                drag={drag}
               />
             </div>
           </div>
@@ -503,10 +525,9 @@ interface WeekViewProps {
   bookingsByDate: Record<string, Booking[]>
   onAdd: (date: string, slot: string) => void
   onEdit: (booking: Booking) => void
-  drag: DragHandlers
 }
 
-function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit, drag }: WeekViewProps) {
+function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
   const slotSet = new Set<string>()
   for (const date of dates) {
     const dayOfWeek = dow(new Date(date + 'T12:00:00'))
@@ -562,7 +583,6 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit, drag }: Wee
                         compact
                         date={date}
                         slot={time}
-                        drag={drag}
                       />
                     ) : (
                       <div className="h-6" />
@@ -574,6 +594,22 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit, drag }: Wee
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── drag overlay card ─────────────────────────────────────────────
+
+function OverlayCard({ booking }: { booking: Booking }) {
+  return (
+    <div
+      className="bg-[#2a2a2a] border border-[#c8a97e]/60 rounded-lg px-3 py-2 shadow-xl"
+      style={{ opacity: 0.7, minWidth: 120 }}
+    >
+      <span className="flex items-center gap-1.5 text-sm font-inter font-semibold text-[#ede9e1]">
+        <GripVertical size={12} className="text-[#c8a97e] shrink-0" />
+        {booking.clientName}
+      </span>
     </div>
   )
 }
@@ -591,6 +627,7 @@ export default function CalendarSection() {
     setView('day')
     setCurrentDate(today)
   }, [])
+
   const [bookingWindow,  setBookingWindow]  = useState(5)
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
@@ -598,12 +635,18 @@ export default function CalendarSection() {
   const [addModal,       setAddModal]       = useState<{ date: string; slot: string } | null>(null)
   const [editBooking,    setEditBooking]    = useState<Booking | null>(null)
   const [dropError,      setDropError]      = useState<string | null>(null)
-
-  // ── drag & drop state ───────────────────────────────────────────
-  const [draggingBooking, setDraggingBooking] = useState<Booking | null>(null)
-  const [dropTarget,      setDropTarget]      = useState<{ date: string; slot: string } | null>(null)
+  const [activeBooking,  setActiveBooking]  = useState<Booking | null>(null)
 
   const fetchedRef = useRef<Set<string>>(new Set())
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+  )
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -650,50 +693,32 @@ export default function CalendarSection() {
     fetchDates([date])
   }
 
-  // ── drag handlers ───────────────────────────────────────────────
+  // ── dnd-kit handlers ────────────────────────────────────────────
 
-  function handleDragStart(booking: Booking) {
-    setDraggingBooking(booking)
+  function handleDragStart({ active }: DragStartEvent) {
+    const booking = active.data.current?.booking as Booking | undefined
+    setActiveBooking(booking ?? null)
     setDropError(null)
   }
 
-  function handleDragEnd() {
-    setDraggingBooking(null)
-    setDropTarget(null)
-  }
+  async function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveBooking(null)
+    if (!over) return
 
-  function handleDragEnter(date: string, slot: string) {
-    const occupied = (bookingsByDate[date] ?? []).some(
-      (b) => b.slot === slot && b.id !== draggingBooking?.id
-    )
-    if (!occupied) setDropTarget({ date, slot })
-  }
+    const booking = active.data.current?.booking as Booking | undefined
+    const toDate  = over.data.current?.date  as string | undefined
+    const toSlot  = over.data.current?.slot  as string | undefined
 
-  function handleDragLeave() {
-    setDropTarget(null)
-  }
-
-  async function handleDrop(date: string, slot: string) {
-    if (!draggingBooking) return
-    setDraggingBooking(null)
-    setDropTarget(null)
-
-    if (draggingBooking.date === date && draggingBooking.slot === slot) return
-
-    const occupied = (bookingsByDate[date] ?? []).some(
-      (b) => b.slot === slot && b.id !== draggingBooking.id
-    )
-    if (occupied) return
-
-    const booking = draggingBooking
+    if (!booking || !toDate || !toSlot) return
+    if (booking.date === toDate && booking.slot === toSlot) return
 
     // Optimistic update
     setBookingsByDate((prev) => {
       const next = { ...prev }
       next[booking.date] = (next[booking.date] ?? []).filter((b) => b.id !== booking.id)
-      next[date] = [
-        ...(next[date] ?? []).filter((b) => b.slot !== slot),
-        { ...booking, date, slot },
+      next[toDate] = [
+        ...(next[toDate] ?? []).filter((b) => b.slot !== toSlot),
+        { ...booking, date: toDate, slot: toSlot },
       ]
       return next
     })
@@ -702,19 +727,19 @@ export default function CalendarSection() {
       const res = await fetch(`/api/admin/bookings/${booking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, slot }),
+        body: JSON.stringify({ date: toDate, slot: toSlot }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error ?? 'Error al mover turno')
       }
       refreshDate(booking.date)
-      refreshDate(date)
+      refreshDate(toDate)
     } catch (err) {
-      // Revert optimistic update
+      // Revert
       setBookingsByDate((prev) => {
         const next = { ...prev }
-        next[date] = (next[date] ?? []).filter((b) => b.id !== booking.id)
+        next[toDate] = (next[toDate] ?? []).filter((b) => b.id !== booking.id)
         next[booking.date] = [...(next[booking.date] ?? []), booking]
         return next
       })
@@ -722,14 +747,8 @@ export default function CalendarSection() {
     }
   }
 
-  const dragHandlers: DragHandlers = {
-    draggingBooking,
-    dropTarget,
-    onDragStart: handleDragStart,
-    onDragEnd:   handleDragEnd,
-    onDragEnter: handleDragEnter,
-    onDragLeave: handleDragLeave,
-    onDrop:      handleDrop,
+  function handleDragCancel() {
+    setActiveBooking(null)
   }
 
   const weekDates = getAdminWeekDates(bookingWindow)
@@ -766,98 +785,106 @@ export default function CalendarSection() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Controls */}
-      <div className="flex flex-col items-center gap-3">
-        {/* View selector */}
-        <div className="flex justify-center gap-4">
-          {(['day', 'week'] as CalView[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={[
-                'rounded-lg font-inter font-medium transition-colors',
-                view === v ? 'bg-[#c8a97e] text-black' : 'bg-[#1a1a1a] text-[#555] hover:text-white',
-              ].join(' ')}
-              style={{ padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}
-            >
-              {v === 'day' ? 'Día' : 'Semana'}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="space-y-5">
+        {/* Controls */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex justify-center gap-4">
+            {(['day', 'week'] as CalView[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={[
+                  'rounded-lg font-inter font-medium transition-colors',
+                  view === v ? 'bg-[#c8a97e] text-black' : 'bg-[#1a1a1a] text-[#555] hover:text-white',
+                ].join(' ')}
+                style={{ padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}
+              >
+                {v === 'day' ? 'Día' : 'Semana'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center justify-center gap-2" style={{ minWidth: 240 }}>
+            {view === 'day' && (
+              <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
+            )}
+            <span className="text-white text-sm font-inter text-center">{headerLabel}</span>
+            {view === 'day' && (
+              <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
+            )}
+          </div>
+        </div>
+
+        {/* Drop error toast */}
+        {dropError && (
+          <div className="flex items-center justify-between bg-red-950/40 border border-red-500/30 rounded-xl px-4 py-2.5">
+            <p className="text-red-400 text-xs font-inter">{dropError}</p>
+            <button onClick={() => setDropError(null)} className="text-red-400/60 hover:text-red-400 ml-3">
+              <X size={14} />
             </button>
-          ))}
-        </div>
-        {/* Date navigator */}
-        <div className="flex items-center justify-center gap-2" style={{ minWidth: 240 }}>
-          {view === 'day' && (
-            <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
-          )}
-          <span className="text-white text-sm font-inter text-center">{headerLabel}</span>
-          {view === 'day' && (
-            <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Drop error toast */}
-      {dropError && (
-        <div className="flex items-center justify-between bg-red-950/40 border border-red-500/30 rounded-xl px-4 py-2.5">
-          <p className="text-red-400 text-xs font-inter">{dropError}</p>
-          <button onClick={() => setDropError(null)} className="text-red-400/60 hover:text-red-400 ml-3">
-            <X size={14} />
-          </button>
-        </div>
-      )}
+        {/* View content */}
+        <div className="bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl p-4">
+          {view === 'day' && (() => {
+            const date = visibleDates[0]
+            if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
+            const dayDow   = dow(new Date(date + 'T12:00:00'))
+            const slots    = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
+            const bookings = bookingsByDate[date] ?? []
+            return (
+              <DayView
+                date={date}
+                slots={slots}
+                bookings={bookings}
+                onAdd={(slot) => setAddModal({ date, slot })}
+                onEdit={(booking) => setEditBooking(booking)}
+              />
+            )
+          })()}
 
-      {/* View content */}
-      <div className="bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl p-4">
-        {view === 'day' && (() => {
-          const date = visibleDates[0]
-          if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
-          const dayDow   = dow(new Date(date + 'T12:00:00'))
-          const slots    = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
-          const bookings = bookingsByDate[date] ?? []
-          return (
-            <DayView
-              date={date}
-              slots={slots}
-              bookings={bookings}
-              onAdd={(slot) => setAddModal({ date, slot })}
+          {view === 'week' && (
+            <WeekView
+              dates={weekDates}
+              slotsData={slotsData}
+              bookingsByDate={bookingsByDate}
+              onAdd={(date, slot) => setAddModal({ date, slot })}
               onEdit={(booking) => setEditBooking(booking)}
-              drag={dragHandlers}
             />
-          )
-        })()}
+          )}
+        </div>
 
-        {view === 'week' && (
-          <WeekView
-            dates={weekDates}
-            slotsData={slotsData}
-            bookingsByDate={bookingsByDate}
-            onAdd={(date, slot) => setAddModal({ date, slot })}
-            onEdit={(booking) => setEditBooking(booking)}
-            drag={dragHandlers}
+        {/* Add modal */}
+        {addModal && (
+          <AddModal
+            date={addModal.date}
+            slot={addModal.slot}
+            onClose={() => setAddModal(null)}
+            onBooked={() => refreshDate(addModal.date)}
+          />
+        )}
+
+        {/* Edit modal */}
+        {editBooking && (
+          <EditModal
+            booking={editBooking}
+            onClose={() => setEditBooking(null)}
+            onSaved={() => refreshDate(editBooking.date)}
+            onDeleted={() => refreshDate(editBooking.date)}
           />
         )}
       </div>
 
-      {/* Add modal */}
-      {addModal && (
-        <AddModal
-          date={addModal.date}
-          slot={addModal.slot}
-          onClose={() => setAddModal(null)}
-          onBooked={() => refreshDate(addModal.date)}
-        />
-      )}
-
-      {/* Edit modal */}
-      {editBooking && (
-        <EditModal
-          booking={editBooking}
-          onClose={() => setEditBooking(null)}
-          onSaved={() => refreshDate(editBooking.date)}
-          onDeleted={() => refreshDate(editBooking.date)}
-        />
-      )}
-    </div>
+      {/* Floating overlay that follows cursor/finger */}
+      <DragOverlay>
+        {activeBooking ? <OverlayCard booking={activeBooking} /> : null}
+      </DragOverlay>
+    </DndContext>
   )
 }
