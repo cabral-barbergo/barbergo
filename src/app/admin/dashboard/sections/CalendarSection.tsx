@@ -641,10 +641,10 @@ export default function CalendarSection() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { delay: 200, tolerance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { delay: 800, tolerance: 5 },
     }),
   )
 
