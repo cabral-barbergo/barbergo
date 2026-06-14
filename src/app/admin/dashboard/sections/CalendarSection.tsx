@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Check, X, User, MapPin } from 'lucide-react'
+import { Plus, Trash2, Check, X, User, MapPin, GripVertical } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
@@ -15,6 +15,16 @@ interface SlotState {
 interface DaySlotData {
   dayOfWeek: number
   slots: SlotState[]
+}
+
+interface DragHandlers {
+  draggingBooking: Booking | null
+  dropTarget: { date: string; slot: string } | null
+  onDragStart: (booking: Booking) => void
+  onDragEnd: () => void
+  onDragEnter: (date: string, slot: string) => void
+  onDragLeave: () => void
+  onDrop: (date: string, slot: string) => void
 }
 
 // ── date utilities ────────────────────────────────────────────────
@@ -364,31 +374,53 @@ interface SlotCellProps {
   onAdd?: () => void
   onEdit?: () => void
   compact?: boolean
+  date?: string
+  slot?: string
+  drag?: DragHandlers
 }
 
 const shortAddress = (address: string) => address.split(',')[0].trim()
 
-function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
+function SlotCell({ booking, onAdd, onEdit, compact, date, slot, drag }: SlotCellProps) {
+  const isDraggingThis = drag?.draggingBooking?.id === booking?.id
+  const isDragging     = drag != null && drag.draggingBooking != null
+  const isTarget       = drag?.dropTarget?.date === date && drag?.dropTarget?.slot === slot
+
   if (booking) {
     const addr = !compact && booking.address ? shortAddress(booking.address) : null
     return (
       <button
-        onClick={onEdit}
+        onClick={isDraggingThis ? undefined : onEdit}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move'
+          drag?.onDragStart(booking)
+        }}
+        onDragEnd={() => drag?.onDragEnd()}
         className={[
           'w-full bg-[#2a2420] border border-[#c8a97e]/20 rounded-lg text-left font-inter transition-colors hover:border-[#c8a97e]/40 hover:bg-[#352b1f]',
           compact ? 'px-2 py-1 text-xs truncate' : '',
+          isDraggingThis ? 'opacity-50' : '',
+          isDragging && !isDraggingThis ? 'cursor-not-allowed' : '',
         ].join(' ')}
-        style={!compact ? { padding: '0.75rem 1rem' } : undefined}
+        style={{
+          ...(!compact ? { padding: '0.75rem 1rem' } : {}),
+          cursor: isDraggingThis ? 'grabbing' : isDragging ? 'not-allowed' : 'grab',
+        }}
       >
         {compact ? (
-          <span className="text-[#c8a97e]">{booking.clientName}</span>
+          <span className="flex items-center gap-1 min-w-0">
+            <GripVertical size={12} className="text-[#666] shrink-0 pointer-events-none" />
+            <span className="text-[#c8a97e] truncate">{booking.clientName}</span>
+          </span>
         ) : (
           <>
-            <span className="block truncate font-semibold text-[#ede9e1]" style={{ fontSize: '1rem' }}>
+            <span className="flex items-center gap-1.5 font-semibold text-[#ede9e1] truncate" style={{ fontSize: '1rem' }}>
+              <GripVertical size={12} className="text-[#666] shrink-0 pointer-events-none" />
               {booking.clientName}
             </span>
             {addr && (
-              <span className="block truncate text-[#c8a97e]" style={{ fontSize: '0.85rem' }}>
+              <span className="block truncate text-[#c8a97e] mt-0.5" style={{ fontSize: '0.85rem' }}>
                 {addr}
               </span>
             )}
@@ -397,15 +429,24 @@ function SlotCell({ booking, onAdd, onEdit, compact }: SlotCellProps) {
       </button>
     )
   }
+
+  // Empty slot — acts as drop zone when dragging
   return (
     <button
-      onClick={onAdd}
+      onClick={isDragging ? undefined : onAdd}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+      onDragEnter={(e) => { e.preventDefault(); if (date && slot) drag?.onDragEnter(date, slot) }}
+      onDragLeave={() => drag?.onDragLeave()}
+      onDrop={(e) => { e.preventDefault(); if (date && slot) drag?.onDrop(date, slot) }}
       className={[
-        'w-full bg-[#141414] border border-dashed border-[#2a2a2a] rounded-lg text-xs font-inter text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex items-center justify-center',
+        'w-full rounded-lg text-xs font-inter transition-all flex items-center justify-center',
         compact ? 'px-2 py-1' : 'px-3 py-2',
+        isTarget
+          ? 'border-2 border-dashed border-[#c8a97e] bg-[rgba(200,169,126,0.1)]'
+          : 'bg-[#141414] border border-dashed border-[#2a2a2a] text-emerald-500 hover:border-emerald-500/40 hover:bg-emerald-500/5',
       ].join(' ')}
     >
-      <Plus size={12} />
+      {!isDragging && <Plus size={12} className="pointer-events-none" />}
     </button>
   )
 }
@@ -418,9 +459,10 @@ interface DayViewProps {
   bookings: Booking[]
   onAdd: (slot: string) => void
   onEdit: (booking: Booking) => void
+  drag: DragHandlers
 }
 
-function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
+function DayView({ date, slots, bookings, onAdd, onEdit, drag }: DayViewProps) {
   const active = slots.filter((s) => s.isActive)
   if (active.length === 0) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin slots activos para este día.</div>
@@ -437,7 +479,14 @@ function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
           <div key={s.slot} className="flex items-center gap-3">
             <span className="text-[#ede9e1] text-xs font-mono w-11 shrink-0">{s.slot}</span>
             <div className="flex-1">
-              <SlotCell booking={booking} onAdd={() => onAdd(s.slot)} onEdit={() => booking && onEdit(booking)} />
+              <SlotCell
+                booking={booking}
+                onAdd={() => onAdd(s.slot)}
+                onEdit={() => booking && onEdit(booking)}
+                date={date}
+                slot={s.slot}
+                drag={drag}
+              />
             </div>
           </div>
         )
@@ -454,9 +503,10 @@ interface WeekViewProps {
   bookingsByDate: Record<string, Booking[]>
   onAdd: (date: string, slot: string) => void
   onEdit: (booking: Booking) => void
+  drag: DragHandlers
 }
 
-function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
+function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit, drag }: WeekViewProps) {
   const slotSet = new Set<string>()
   for (const date of dates) {
     const dayOfWeek = dow(new Date(date + 'T12:00:00'))
@@ -510,6 +560,9 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
                         onAdd={() => onAdd(date, time)}
                         onEdit={() => booking && onEdit(booking)}
                         compact
+                        date={date}
+                        slot={time}
+                        drag={drag}
                       />
                     ) : (
                       <div className="h-6" />
@@ -544,6 +597,11 @@ export default function CalendarSection() {
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, Booking[]>>({})
   const [addModal,       setAddModal]       = useState<{ date: string; slot: string } | null>(null)
   const [editBooking,    setEditBooking]    = useState<Booking | null>(null)
+  const [dropError,      setDropError]      = useState<string | null>(null)
+
+  // ── drag & drop state ───────────────────────────────────────────
+  const [draggingBooking, setDraggingBooking] = useState<Booking | null>(null)
+  const [dropTarget,      setDropTarget]      = useState<{ date: string; slot: string } | null>(null)
 
   const fetchedRef = useRef<Set<string>>(new Set())
 
@@ -590,6 +648,88 @@ export default function CalendarSection() {
   function refreshDate(date: string) {
     fetchedRef.current.delete(date)
     fetchDates([date])
+  }
+
+  // ── drag handlers ───────────────────────────────────────────────
+
+  function handleDragStart(booking: Booking) {
+    setDraggingBooking(booking)
+    setDropError(null)
+  }
+
+  function handleDragEnd() {
+    setDraggingBooking(null)
+    setDropTarget(null)
+  }
+
+  function handleDragEnter(date: string, slot: string) {
+    const occupied = (bookingsByDate[date] ?? []).some(
+      (b) => b.slot === slot && b.id !== draggingBooking?.id
+    )
+    if (!occupied) setDropTarget({ date, slot })
+  }
+
+  function handleDragLeave() {
+    setDropTarget(null)
+  }
+
+  async function handleDrop(date: string, slot: string) {
+    if (!draggingBooking) return
+    setDraggingBooking(null)
+    setDropTarget(null)
+
+    if (draggingBooking.date === date && draggingBooking.slot === slot) return
+
+    const occupied = (bookingsByDate[date] ?? []).some(
+      (b) => b.slot === slot && b.id !== draggingBooking.id
+    )
+    if (occupied) return
+
+    const booking = draggingBooking
+
+    // Optimistic update
+    setBookingsByDate((prev) => {
+      const next = { ...prev }
+      next[booking.date] = (next[booking.date] ?? []).filter((b) => b.id !== booking.id)
+      next[date] = [
+        ...(next[date] ?? []).filter((b) => b.slot !== slot),
+        { ...booking, date, slot },
+      ]
+      return next
+    })
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, slot }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Error al mover turno')
+      }
+      refreshDate(booking.date)
+      refreshDate(date)
+    } catch (err) {
+      // Revert optimistic update
+      setBookingsByDate((prev) => {
+        const next = { ...prev }
+        next[date] = (next[date] ?? []).filter((b) => b.id !== booking.id)
+        next[booking.date] = [...(next[booking.date] ?? []), booking]
+        return next
+      })
+      setDropError(err instanceof Error ? err.message : 'Error al mover turno')
+    }
+  }
+
+  const dragHandlers: DragHandlers = {
+    draggingBooking,
+    dropTarget,
+    onDragStart: handleDragStart,
+    onDragEnd:   handleDragEnd,
+    onDragEnter: handleDragEnter,
+    onDragLeave: handleDragLeave,
+    onDrop:      handleDrop,
   }
 
   const weekDates = getAdminWeekDates(bookingWindow)
@@ -657,6 +797,16 @@ export default function CalendarSection() {
         </div>
       </div>
 
+      {/* Drop error toast */}
+      {dropError && (
+        <div className="flex items-center justify-between bg-red-950/40 border border-red-500/30 rounded-xl px-4 py-2.5">
+          <p className="text-red-400 text-xs font-inter">{dropError}</p>
+          <button onClick={() => setDropError(null)} className="text-red-400/60 hover:text-red-400 ml-3">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* View content */}
       <div className="bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl p-4">
         {view === 'day' && (() => {
@@ -672,6 +822,7 @@ export default function CalendarSection() {
               bookings={bookings}
               onAdd={(slot) => setAddModal({ date, slot })}
               onEdit={(booking) => setEditBooking(booking)}
+              drag={dragHandlers}
             />
           )
         })()}
@@ -683,6 +834,7 @@ export default function CalendarSection() {
             bookingsByDate={bookingsByDate}
             onAdd={(date, slot) => setAddModal({ date, slot })}
             onEdit={(booking) => setEditBooking(booking)}
+            drag={dragHandlers}
           />
         )}
       </div>

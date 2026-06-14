@@ -95,6 +95,34 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
   logResults('notifyBookingCreated', tos, await Promise.allSettled(tasks))
 }
 
+export async function notifyBookingRescheduled(
+  booking: Booking,
+  newDate: string,
+  newSlot: string
+): Promise<void> {
+  const clientMsg =
+    `Hola ${booking.clientName}, tu turno fue reprogramado para el ${newDate} a las ${newSlot}. ¡Te esperamos! - Seba Cabral`
+
+  const barberMsg =
+    `Turno reprogramado 📅\nCliente: ${booking.clientName}\nNueva fecha: ${newDate} ${newSlot}`
+
+  const clientTo = toWA(booking.clientPhone)
+  let barberTo: string
+  try {
+    barberTo = barberNumber()
+  } catch (err) {
+    console.error('[notify] notifyBookingRescheduled — barber config missing:', err)
+    barberTo = ''
+  }
+
+  const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
+  const tasks = barberTo
+    ? [send(clientTo, clientMsg), send(barberTo, barberMsg)]
+    : [send(clientTo, clientMsg)]
+
+  logResults('notifyBookingRescheduled', tos, await Promise.allSettled(tasks))
+}
+
 export async function notifyBookingCancelled(booking: Booking): Promise<void> {
   const clientMsg =
     `Hola ${booking.clientName}, tu turno del ${booking.date} a las ${booking.slot} fue cancelado. ` +

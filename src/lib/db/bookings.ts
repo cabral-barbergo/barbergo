@@ -112,6 +112,20 @@ export async function updateBookingById(
   if (error) throw error
 }
 
+export async function rescheduleBooking(
+  id: string,
+  newDate: string,
+  newSlot: string
+): Promise<void> {
+  const taken = await isSlotTaken(newDate, newSlot)
+  if (taken) throw new SlotConflictError()
+  const { error } = await supabase
+    .from('bookings')
+    .update({ date: newDate, slot: newSlot })
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function cancelBookingById(id: string): Promise<void> {
   const { error } = await supabase
     .from('bookings')

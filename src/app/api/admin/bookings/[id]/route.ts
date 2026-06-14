@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized } from '@/lib/adminAuth'
-import { getBookingById, updateBookingById, cancelBookingById } from '@/lib/db/bookings'
-import { notifyBookingCancelled } from '@/lib/notify'
+import { getBookingById, updateBookingById, cancelBookingById, rescheduleBooking } from '@/lib/db/bookings'
+import { notifyBookingCancelled, notifyBookingRescheduled } from '@/lib/notify'
 
 interface Context {
   params: { id: string }
@@ -21,17 +21,38 @@ export async function PATCH(request: Request, { params }: Context) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { clientName, address, lat, lon } = body as {
+  const { clientName, address, lat, lon, date, slot } = body as {
     clientName?: string
     address?: string
     lat?: number
     lon?: number
+    date?: string
+    slot?: string
   }
 
   try {
-    await updateBookingById(params.id, { clientName, address, lat, lon })
+    if (date !== undefined || slot !== undefined) {
+      const booking = await getBookingById(params.id)
+      if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+
+      const newDate = date ?? booking.date
+      const newSlot = slot ?? booking.slot
+
+      await rescheduleBooking(params.id, newDate, newSlot)
+
+      if (booking.clientPhone) {
+        notifyBookingRescheduled(booking, newDate, newSlot).catch((err) =>
+          console.error('[notify] admin rescheduling:', err)
+        )
+      }
+    } else {
+      await updateBookingById(params.id, { clientName, address, lat, lon })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
+    if (err instanceof Error && err.name === 'SlotConflictError') {
+      return NextResponse.json({ error: 'Este horario ya está ocupado' }, { status: 409 })
+    }
     console.error('[admin/bookings PATCH id]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
