@@ -76,7 +76,7 @@ const MONTH_NAMES = [
   'julio','agosto','septiembre','octubre','noviembre','diciembre',
 ]
 
-const DAY_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb']
+const DAY_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 
 function formatDay(d: Date): string {
   return `${DAY_SHORT[dow(d)]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
@@ -835,7 +835,7 @@ export default function CalendarSection() {
         <div className="bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl p-4">
           {view === 'day' && (() => {
             const date = visibleDates[0]
-            if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los fines de semana.</div>
+            if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los domingos.</div>
             const dayDow   = dow(new Date(date + 'T12:00:00'))
             const slots    = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
             const bookings = bookingsByDate[date] ?? []
