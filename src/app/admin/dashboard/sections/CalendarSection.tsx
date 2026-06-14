@@ -5,7 +5,6 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
   useDraggable,
@@ -399,7 +398,7 @@ function DraggableBookingCell({ booking, onEdit, compact }: DraggableBookingCell
       ].join(' ')}
       style={{
         ...(!compact ? { padding: '0.75rem 1rem' } : {}),
-        touchAction: 'none',
+        touchAction: 'pan-y',
       }}
     >
       {compact ? (
@@ -639,12 +638,14 @@ export default function CalendarSection() {
 
   const fetchedRef = useRef<Set<string>>(new Set())
 
+  const isTouchDevice = typeof window !== 'undefined' && navigator.maxTouchPoints > 0
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 800, tolerance: 5 },
+      activationConstraint: {
+        delay:     isTouchDevice ? 800 : 150,
+        tolerance: isTouchDevice ? 5   : 8,
+      },
     }),
   )
 
