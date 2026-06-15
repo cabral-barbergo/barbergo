@@ -61,8 +61,7 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Only the first 2 days that have at least 1 available slot
-  const daysWithSlots = days.filter((d) => d.slots.length > 0).slice(0, 2)
+  const daysWithSlots = days.filter((d) => d.slots.length > 0)
 
   function handleSlotClick(date: string, slot: string) {
     setSelected({ date, slot })
