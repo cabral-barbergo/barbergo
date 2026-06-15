@@ -41,6 +41,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-[#0a0a0a] text-white antialiased">
         {children}
+        <footer style={{ fontSize: '0.7rem', color: '#333', textAlign: 'center', padding: '0.5rem' }}>
+          Seba Cabral Peluqueria Itinerante · Calle 36 154, Mercedes, Buenos Aires · +54 9 2324 505612
+        </footer>
       </body>
     </html>
   )
