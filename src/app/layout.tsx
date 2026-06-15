@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     icon: '/icons/icon-192x192.png',
     apple: '/icons/apple-touch-icon.png',
   },
+  other: {
+    'facebook-domain-verification': 'kqn11it6z28xb5brz5oum6eq0f1pkg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
