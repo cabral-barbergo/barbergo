@@ -54,16 +54,41 @@ function logResults(label: string, tos: string[], results: PromiseSettledResult<
   })
 }
 
+function personsToSlotsNeeded(persons: number): number {
+  if (persons <= 1) return 1
+  if (persons <= 3) return 2
+  return 3
+}
+
+function addMinutesToSlot(slot: string, minutes: number): string {
+  const [h, m] = slot.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] START clientPhone:', JSON.stringify(booking.clientPhone), 'len:', booking.clientPhone?.length ?? 'undefined')
   console.log('[notify] PELUQUERO_PHONE:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
   const service = SERVICES.find((s) => s.id === booking.serviceId)
   const link    = `${process.env.NEXT_PUBLIC_URL}/turno/${booking.token}`
+  const persons = booking.persons ?? 1
+
+  let timeInfo: string
+  let barberTimeInfo: string
+  if (persons > 1) {
+    const slotsNeeded = personsToSlotsNeeded(persons)
+    const slotFin = addMinutesToSlot(booking.slot, slotsNeeded * 30)
+    timeInfo = `Tu turno es para ${persons} personas, de ${booking.slot} a ${slotFin}`
+    barberTimeInfo = `de ${booking.slot} a ${slotFin} (${persons} personas)`
+  } else {
+    timeInfo = `🕐 Hora: ${booking.slot}`
+    barberTimeInfo = booking.slot
+  }
 
   const clientMsg =
     `¡Hola ${booking.clientName}! Tu turno está confirmado ✅\n\n` +
     `📅 Fecha: ${booking.date}\n` +
-    `🕐 Hora: ${booking.slot}\n` +
+    `${persons > 1 ? `👥 ${timeInfo}` : timeInfo}\n` +
     `✂️ Servicio: ${service?.label ?? booking.serviceId}\n` +
     `📍 Dirección: ${booking.address}\n\n` +
     `Podés gestionar tu turno acá:\n${link}`
@@ -72,7 +97,7 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
     `Nuevo turno 📅\n` +
     `Cliente: ${booking.clientName}\n` +
     `Tel: ${booking.clientPhone}\n` +
-    `Fecha: ${booking.date} ${booking.slot}\n` +
+    `Fecha: ${booking.date} ${barberTimeInfo}\n` +
     `Dirección: ${booking.address}`
 
   const clientTo = toWA(booking.clientPhone)

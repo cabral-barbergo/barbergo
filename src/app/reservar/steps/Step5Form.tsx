@@ -53,6 +53,8 @@ export default function Step5Form({ date, slot, location, onSuccess }: Props) {
           address: location.address,
           lat: location.lat,
           lon: location.lon,
+          persons: location.persons ?? 1,
+          slotsNeeded: location.slotsNeeded ?? 1,
         }),
       })
       const data = await res.json()
@@ -80,6 +82,9 @@ export default function Step5Form({ date, slot, location, onSuccess }: Props) {
         <p className="text-[#555] text-xs font-inter uppercase tracking-wide mb-3">Resumen del turno</p>
         <SummaryRow icon="📅" text={`${formatDate(date)} a las ${slot}`} />
         <SummaryRow icon="📍" text={location.address} />
+        {(location.persons ?? 1) > 1 && (
+          <SummaryRow icon="👥" text={`${location.persons} personas`} />
+        )}
       </div>
 
       {/* Form */}

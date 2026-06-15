@@ -41,8 +41,9 @@ export default function Step2DaySlot({ location, onSelect }: Props) {
       const results = await Promise.all(
         dates.map(async (date) => {
           try {
+            const slotsNeeded = location.slotsNeeded ?? 1
             const res  = await fetch(
-              `/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}`,
+              `/api/availability?date=${date}&lat=${location.lat}&lon=${location.lon}&slotsNeeded=${slotsNeeded}`,
               { cache: 'no-store' }
             )
             const data = await res.json()

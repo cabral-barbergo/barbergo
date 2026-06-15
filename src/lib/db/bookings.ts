@@ -22,6 +22,8 @@ type BookingRow = {
   service_id: string
   status: string
   created_at: string
+  persons?: number | null
+  linked_to?: string | null
 }
 
 type AvailabilityRow = {
@@ -46,6 +48,8 @@ function toBooking(row: BookingRow): Booking {
     lon: row.lon,
     serviceId: row.service_id,
     status: row.status as Booking['status'],
+    persons: row.persons ?? 1,
+    linkedTo: row.linked_to ?? null,
   }
 }
 
@@ -148,7 +152,7 @@ export async function getBookingByToken(token: string): Promise<Booking | null> 
 }
 
 export async function createBooking(
-  data: Omit<Booking, 'id' | 'token' | 'status'>
+  data: Omit<Booking, 'id' | 'token' | 'status'> & { persons?: number; linkedTo?: string | null }
 ): Promise<Booking> {
   const { data: row, error } = await supabase
     .from('bookings')
@@ -161,6 +165,8 @@ export async function createBooking(
       lat: data.lat,
       lon: data.lon,
       service_id: data.serviceId,
+      ...(data.persons !== undefined ? { persons: data.persons } : {}),
+      ...(data.linkedTo !== undefined ? { linked_to: data.linkedTo } : {}),
     })
     .select()
     .single()

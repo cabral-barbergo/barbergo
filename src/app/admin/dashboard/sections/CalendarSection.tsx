@@ -384,6 +384,7 @@ function DraggableBookingCell({ booking, onEdit, compact }: DraggableBookingCell
   })
 
   const addr = !compact && booking.address ? shortAddress(booking.address) : null
+  const persons = booking.persons ?? 1
 
   return (
     <div
@@ -404,13 +405,19 @@ function DraggableBookingCell({ booking, onEdit, compact }: DraggableBookingCell
       {compact ? (
         <span className="flex items-center gap-1 min-w-0 truncate">
           <GripVertical size={12} className="text-[#666] shrink-0" />
-          <span className="text-[#c8a97e] truncate">{booking.clientName}</span>
+          <span className="text-[#c8a97e] truncate">
+            {booking.clientName}
+            {persons > 1 && <span className="ml-1 text-[#888]">·{persons}p</span>}
+          </span>
         </span>
       ) : (
         <>
           <span className="flex items-center gap-1.5 font-semibold text-[#ede9e1] truncate" style={{ fontSize: '1rem' }}>
             <GripVertical size={12} className="text-[#666] shrink-0" />
             {booking.clientName}
+            {persons > 1 && (
+              <span className="ml-1 text-[#c8a97e] text-xs font-inter font-normal">· {persons} personas</span>
+            )}
           </span>
           {addr && (
             <span className="block truncate text-[#c8a97e] mt-0.5" style={{ fontSize: '0.85rem' }}>
@@ -419,6 +426,20 @@ function DraggableBookingCell({ booking, onEdit, compact }: DraggableBookingCell
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function LinkedContinuationCell({ compact }: { compact?: boolean }) {
+  return (
+    <div
+      className={[
+        'w-full rounded-lg font-inter select-none flex items-center',
+        compact ? 'px-2 py-1 text-xs' : 'px-4 py-2',
+      ].join(' ')}
+      style={{ background: '#1a1a1a', border: '1px solid #222', color: '#555' }}
+    >
+      <span className="truncate">→ continuación</span>
     </div>
   )
 }
@@ -469,6 +490,9 @@ interface SlotCellProps {
 
 function SlotCell({ booking, onAdd, onEdit, compact, date, slot }: SlotCellProps) {
   if (booking) {
+    if (booking.linkedTo) {
+      return <LinkedContinuationCell compact={compact} />
+    }
     return <DraggableBookingCell booking={booking} onEdit={onEdit} compact={compact} />
   }
   return <DroppableEmptySlot date={date} slot={slot} onAdd={onAdd} compact={compact} />

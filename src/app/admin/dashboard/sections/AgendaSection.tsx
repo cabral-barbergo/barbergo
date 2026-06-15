@@ -106,9 +106,9 @@ export default function AgendaSection() {
     fetchDay(next)
   }
 
-  const bookings    = data?.bookings ?? []
-  const mapBookings = bookings.filter((b) => b.lat !== 0 || b.lon !== 0)
-  const revenue     = precioCorte * bookings.length
+  const bookings        = (data?.bookings ?? []).filter((b) => !b.linkedTo)
+  const mapBookings     = bookings.filter((b) => b.lat !== 0 || b.lon !== 0)
+  const revenue         = bookings.reduce((sum, b) => sum + precioCorte * (b.persons ?? 1), 0)
 
   return (
     <div className="space-y-3">
@@ -222,7 +222,12 @@ export default function AgendaSection() {
                     <span className="w-5 h-5 rounded-full bg-[#c8a97e] text-black text-[10px] font-bold font-syne flex items-center justify-center shrink-0">
                       {i + 1}
                     </span>
-                    <span className="font-syne font-semibold text-white text-sm">{b.clientName}</span>
+                    <span className="font-syne font-semibold text-white text-sm">
+                      {b.clientName}
+                      {(b.persons ?? 1) > 1 && (
+                        <span className="ml-1.5 text-[#c8a97e] text-xs font-inter font-normal">· {b.persons} personas</span>
+                      )}
+                    </span>
                   </div>
                   <span className="text-[#c8a97e] text-xs font-inter font-medium">{b.slot}</span>
                 </div>

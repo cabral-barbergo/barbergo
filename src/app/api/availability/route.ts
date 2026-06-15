@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   const date = searchParams.get('date')
   const latRaw = searchParams.get('lat')
   const lonRaw = searchParams.get('lon')
+  const slotsNeeded = Math.max(1, parseInt(searchParams.get('slotsNeeded') ?? '1', 10) || 1)
 
   if (!date || latRaw == null || lonRaw == null) {
     return NextResponse.json({ error: 'date, lat, and lon are required' }, { status: 400 })
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
     }
 
     const eff = getEffectiveLocation(lat, lon, zone)
-    const slots = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots, zone)
+    const slots = getAvailableSlotsForDay(bookings, date, eff.lat, eff.lon, activeSlots, blockedSlots, zone, slotsNeeded)
 
     console.log('[availability] date=%s lat=%s lon=%s isolated=%s effLat=%s effLon=%s activeSlots=%d bookings=%d result=%d',
       date, lat, lon, eff.isIsolated, eff.lat, eff.lon, activeSlots.length, bookings.length, slots.length)

@@ -107,9 +107,13 @@ export async function POST(request: Request) {
   }
   const address = rawAddress.trim().slice(0, 300)
 
+  // persons and slotsNeeded
+  const persons = typeof raw.persons === 'number' && raw.persons >= 1 && raw.persons <= 4 ? raw.persons : 1
+  const slotsNeeded = typeof raw.slotsNeeded === 'number' && raw.slotsNeeded >= 1 ? raw.slotsNeeded : 1
+
   // ────────────────────────────────────────────────────────────────
 
-  console.log('[bookings POST] body:', { clientName, clientPhone, date, slot })
+  console.log('[bookings POST] body:', { clientName, clientPhone, date, slot, persons, slotsNeeded })
 
   const serviceId = typeof raw.serviceId === 'string' ? raw.serviceId : 'corte'
 
@@ -169,12 +173,52 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 409 })
     }
 
+    // For multi-slot bookings, find and validate additional slots in the same block
+    let additionalSlots: string[] = []
+    if (slotsNeeded > 1) {
+      const startIdx = block.indexOf(slot)
+      for (let i = 1; i < slotsNeeded; i++) {
+        const extraSlot = block[startIdx + i]
+        if (!extraSlot) {
+          return NextResponse.json({ error: 'No hay suficientes horarios contiguos disponibles' }, { status: 409 })
+        }
+        if (blockedSlots.includes(extraSlot)) {
+          return NextResponse.json({ error: 'No hay suficientes horarios contiguos disponibles' }, { status: 409 })
+        }
+        if (existing.some((b) => b.slot === extraSlot)) {
+          return NextResponse.json({ error: 'No hay suficientes horarios contiguos disponibles' }, { status: 409 })
+        }
+        additionalSlots.push(extraSlot)
+      }
+    }
+
     // Final atomic check to narrow race window
     if (await isSlotTaken(date, slot)) {
       return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
+    for (const extra of additionalSlots) {
+      if (await isSlotTaken(date, extra)) {
+        return NextResponse.json({ error: 'No hay suficientes horarios contiguos disponibles' }, { status: 409 })
+      }
+    }
 
-    const booking = await createBooking({ date, slot, clientName, clientPhone, address, lat, lon, serviceId })
+    const booking = await createBooking({ date, slot, clientName, clientPhone, address, lat, lon, serviceId, persons })
+
+    // Create linked bookings for additional slots
+    for (const extraSlot of additionalSlots) {
+      await createBooking({
+        date,
+        slot: extraSlot,
+        clientName,
+        clientPhone,
+        address,
+        lat,
+        lon,
+        serviceId,
+        persons: 0,
+        linkedTo: booking.id,
+      })
+    }
 
     console.log('[notify] clientPhone from booking object:', booking.clientPhone)
     console.log('[notify] clientPhone from request body:', clientPhone)

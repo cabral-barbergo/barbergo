@@ -166,6 +166,21 @@ export function getEffectiveLocation(
   return { lat: projected[0], lon: projected[1], isIsolated }
 }
 
+export function hasContiguousSlots(
+  startSlot: string,
+  slotsNeeded: number,
+  blockSlots: string[],
+  takenSlots: string[]
+): boolean {
+  const startIdx = blockSlots.indexOf(startSlot)
+  if (startIdx === -1) return false
+  for (let i = 0; i < slotsNeeded; i++) {
+    const slot = blockSlots[startIdx + i]
+    if (!slot || takenSlots.includes(slot)) return false
+  }
+  return true
+}
+
 export function getAvailableSlotsForDay(
   allBookings: Booking[],
   date: string,
@@ -173,7 +188,8 @@ export function getAvailableSlotsForDay(
   lon: number,
   activeSlots: string[],
   blockedSlots: string[],
-  zone: Pick<ServiceZone, 'centerLat' | 'centerLon' | 'polygon'>
+  zone: Pick<ServiceZone, 'centerLat' | 'centerLon' | 'polygon'>,
+  slotsNeeded = 1
 ): AvailabilitySlot[] {
   const dayBookings = allBookings.filter(
     (b) => b.date === date && b.status !== 'cancelled' && b.status != null
@@ -181,15 +197,24 @@ export function getAvailableSlotsForDay(
   const takenSet = new Set(dayBookings.map((b) => (b.slot || '').toString().substring(0, 5)))
   const blockedSet = new Set(blockedSlots.map((s) => s.substring(0, 5)))
 
-  // No bookings → no proximity constraint; return all free slots immediately
+  // No bookings → no proximity constraint; return all free slots with contiguous check
   if (dayBookings.length === 0) {
     const freeSlots = activeSlots.filter((s) => !blockedSet.has(s))
-    return freeSlots.map((slot) => ({ slot, status: 'available' as const }))
+    if (slotsNeeded <= 1) return freeSlots.map((slot) => ({ slot, status: 'available' as const }))
+    const allBlocks = groupSlotsIntoBlocks(activeSlots)
+    const takenList = [...Array.from(takenSet), ...Array.from(blockedSet)]
+    return freeSlots
+      .filter((slot) => {
+        const block = allBlocks.find((b) => b.includes(slot))
+        return block ? hasContiguousSlots(slot, slotsNeeded, block, takenList) : false
+      })
+      .map((slot) => ({ slot, status: 'available' as const }))
   }
 
   // Group using full activeSlots so taken slots remain in their blocks,
   // keeping block boundaries and adjacency detection intact.
   const blocks = groupSlotsIntoBlocks(activeSlots)
+  const takenList = [...Array.from(takenSet), ...Array.from(blockedSet)]
 
   const result: AvailabilitySlot[] = []
   for (const block of blocks) {
@@ -204,7 +229,9 @@ export function getAvailableSlotsForDay(
     for (const slot of block) {
       if (takenSet.has(slot) || blockedSet.has(slot)) continue
       const { ok } = canJoinBlock(block, projectedBlockBookings, slot, lat, lon)
-      if (ok) result.push({ slot, status: 'available' })
+      if (!ok) continue
+      if (slotsNeeded > 1 && !hasContiguousSlots(slot, slotsNeeded, block, takenList)) continue
+      result.push({ slot, status: 'available' })
     }
   }
 

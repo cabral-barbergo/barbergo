@@ -10,6 +10,8 @@ export interface Booking {
   lon: number
   serviceId: string
   status: 'pending' | 'confirmed' | 'cancelled'
+  persons?: number
+  linkedTo?: string | null
 }
 
 export interface Service {
