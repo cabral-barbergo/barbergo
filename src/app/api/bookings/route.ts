@@ -174,7 +174,7 @@ export async function POST(request: Request) {
     }
 
     // For multi-slot bookings, find and validate additional slots in the same block
-    let additionalSlots: string[] = []
+    const additionalSlots: string[] = []
     if (slotsNeeded > 1) {
       const startIdx = block.indexOf(slot)
       for (let i = 1; i < slotsNeeded; i++) {
