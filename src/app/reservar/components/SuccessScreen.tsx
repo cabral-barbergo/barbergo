@@ -2,8 +2,50 @@
 
 import type { Booking } from '@/lib/types'
 import { SERVICES } from '@/lib/constants'
-import { CheckCircle, User, CalendarDays, Clock, Scissors, MapPin } from 'lucide-react'
+import { CheckCircle, User, CalendarDays, Clock, Scissors, MapPin, CalendarPlus } from 'lucide-react'
 import type { ReactNode } from 'react'
+
+function generateICS(booking: Booking): string {
+  const [year, month, day] = booking.date.split('-').map(Number)
+  const [hours, minutes] = booking.slot.split(':').map(Number)
+  const startDate = new Date(year, month - 1, day, hours, minutes, 0)
+
+  const persons = booking.persons ?? 1
+  const durationMin = persons === 1 ? 30 : persons === 4 ? 90 : 60
+  const endDate = new Date(startDate.getTime() + durationMin * 60000)
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Seba Cabral//Turnos//ES',
+    'BEGIN:VEVENT',
+    `UID:${booking.token || Date.now()}@sebacabral.com.ar`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(startDate)}`,
+    `DTEND:${fmt(endDate)}`,
+    'SUMMARY:Corte de pelo con Seba',
+    `LOCATION:${(booking.address || '').replace(/,/g, '\\,')}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+}
+
+function addToCalendar(booking: Booking) {
+  const icsContent = generateICS(booking)
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'turno-seba-cabral.ics'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 
 interface Props {
   booking: Booking
@@ -41,6 +83,15 @@ export default function SuccessScreen({ booking }: Props) {
       <div className="bg-[#c8a97e]/10 border border-[#c8a97e]/20 rounded-xl px-4 py-3 text-sm font-inter text-[#c8a97e] mb-8">
         💬 Te llegará un WhatsApp de confirmación al {booking.clientPhone}
       </div>
+
+      <button
+        onClick={() => addToCalendar(booking)}
+        className="w-full flex items-center justify-center gap-2 font-inter text-sm text-[#c8a97e] bg-transparent border border-[#c8a97e] rounded-[10px] px-4 py-3 mb-4 hover:bg-[#c8a97e]/10 transition-colors"
+        style={{ borderWidth: '1.5px' }}
+      >
+        <CalendarPlus size={16} />
+        Agregar a mi calendario
+      </button>
 
       <a
         href={`/turno/${booking.token}`}
