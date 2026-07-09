@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { Plus, Trash2, Check, X, User, MapPin, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Check, X, User, MapPin, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
@@ -58,6 +58,16 @@ function addDays(d: Date, n: number): Date {
   return copy
 }
 
+/** Returns Mon–Sat (6 dates) of the week that is `offset` weeks from today's week. */
+function getWeekDates(offset: number): string[] {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const jsDay = today.getDay()
+  const daysFromMon = jsDay === 0 ? 6 : jsDay - 1
+  const monday = addDays(today, -daysFromMon + offset * 7)
+  return Array.from({ length: 6 }, (_, i) => toLocalISO(addDays(monday, i)))
+}
+
 /** Returns windowDays working days starting from today (inclusive). */
 function getAdminWeekDates(windowDays: number): string[] {
   if (windowDays <= 0) return []
@@ -76,6 +86,8 @@ const MONTH_NAMES = [
   'julio','agosto','septiembre','octubre','noviembre','diciembre',
 ]
 
+const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
 const DAY_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 
 function formatDay(d: Date): string {
@@ -87,9 +99,9 @@ function weekRangeLabel(dates: string[]): string {
   const first = new Date(dates[0] + 'T12:00:00')
   const last  = new Date(dates[dates.length - 1] + 'T12:00:00')
   if (first.getMonth() === last.getMonth()) {
-    return `${first.getDate()}–${last.getDate()} ${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`
+    return `${first.getDate()} – ${last.getDate()} ${MONTH_SHORT[first.getMonth()]}`
   }
-  return `${first.getDate()} ${MONTH_NAMES[first.getMonth()]} – ${last.getDate()} ${MONTH_NAMES[last.getMonth()]} ${last.getFullYear()}`
+  return `${first.getDate()} ${MONTH_SHORT[first.getMonth()]} – ${last.getDate()} ${MONTH_SHORT[last.getMonth()]}`
 }
 
 // ── geocode helper ────────────────────────────────────────────────
@@ -551,6 +563,7 @@ interface WeekViewProps {
 }
 
 function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
+  const todayISO = toLocalISO(new Date())
   const slotSet = new Set<string>()
   for (const date of dates) {
     const dayOfWeek = dow(new Date(date + 'T12:00:00'))
@@ -573,10 +586,13 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
             />
             {dates.map((date) => {
               const d = new Date(date + 'T12:00:00')
+              const isToday = date === todayISO
               return (
                 <th key={date} className="text-center pb-2" style={{ width: 100, minWidth: 100, maxWidth: 100 }}>
                   <p className="text-[#666] text-[10px] font-inter uppercase">{DAY_SHORT[dow(d)]}</p>
-                  <p className="text-white text-sm font-syne font-semibold">{d.getDate()}</p>
+                  <p className={isToday ? 'text-[#c8a97e] text-sm font-syne font-bold' : 'text-white text-sm font-syne font-semibold'}>
+                    {d.getDate()}
+                  </p>
                 </th>
               )
             })}
@@ -651,6 +667,7 @@ export default function CalendarSection() {
     setCurrentDate(today)
   }, [])
 
+  const [weekOffset,     setWeekOffset]     = useState(0)
   const [bookingWindow,  setBookingWindow]  = useState(5)
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
@@ -776,7 +793,7 @@ export default function CalendarSection() {
     setActiveBooking(null)
   }
 
-  const weekDates = getAdminWeekDates(bookingWindow)
+  const weekDates = getWeekDates(weekOffset)
 
   const visibleDates = view === 'day'
     ? (isWeekday(currentDate) ? [toISO(currentDate)] : [])
@@ -835,13 +852,19 @@ export default function CalendarSection() {
             ))}
           </div>
           <div className="flex items-center justify-center gap-2" style={{ minWidth: 240 }}>
-            {view === 'day' && (
-              <button onClick={() => navigate(-1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">‹</button>
-            )}
-            <span className="text-white text-sm font-inter text-center">{headerLabel}</span>
-            {view === 'day' && (
-              <button onClick={() => navigate(1)} className="text-[#555] hover:text-white text-lg px-2 transition-colors">›</button>
-            )}
+            <button
+              onClick={() => view === 'day' ? navigate(-1) : setWeekOffset((o) => o - 1)}
+              className="text-[#555] hover:text-white p-1 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-white text-sm font-inter text-center" style={{ minWidth: 160 }}>{headerLabel}</span>
+            <button
+              onClick={() => view === 'day' ? navigate(1) : setWeekOffset((o) => o + 1)}
+              className="text-[#555] hover:text-white p-1 transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         </div>
 
