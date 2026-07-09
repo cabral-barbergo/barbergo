@@ -68,18 +68,6 @@ function getWeekDates(offset: number): string[] {
   return Array.from({ length: 6 }, (_, i) => toLocalISO(addDays(monday, i)))
 }
 
-/** Returns windowDays working days starting from today (inclusive). */
-function getAdminWeekDates(windowDays: number): string[] {
-  if (windowDays <= 0) return []
-  const result: string[] = []
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  while (result.length < windowDays) {
-    if (isWeekday(d)) result.push(toLocalISO(d))
-    if (result.length < windowDays) d.setDate(d.getDate() + 1)
-  }
-  return result
-}
 
 const MONTH_NAMES = [
   'enero','febrero','marzo','abril','mayo','junio',
@@ -668,7 +656,6 @@ export default function CalendarSection() {
   }, [])
 
   const [weekOffset,     setWeekOffset]     = useState(0)
-  const [bookingWindow,  setBookingWindow]  = useState(5)
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, Booking[]>>({})
@@ -689,15 +676,6 @@ export default function CalendarSection() {
       },
     }),
   )
-
-  useEffect(() => {
-    fetch('/api/admin/settings')
-      .then((r) => r.json())
-      .then((data: { booking_window_days: number }) => {
-        if (data.booking_window_days) setBookingWindow(data.booking_window_days)
-      })
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     fetch('/api/admin/availability-slots')
