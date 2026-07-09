@@ -115,13 +115,10 @@ export default function Step1Location({ onConfirm }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="font-syne text-xl font-bold text-white mb-1">¿Dónde te encuentro?</h2>
-        <p className="text-[#666] text-sm font-inter">Ingresá tu dirección o usá tu ubicación actual</p>
-      </div>
 
-      <div className="space-y-2">
-        <p className="text-[#888] text-xs font-inter uppercase tracking-wide">¿Cuántas personas se cortan?</p>
+      {/* Bloque personas */}
+      <div className="space-y-3">
+        <h3 className="font-syne text-lg font-bold text-white">¿Cuántas personas se cortan?</h3>
         <div className="flex gap-2">
           {([1, 2, 3, 4] as const).map((n) => (
             <button
@@ -141,47 +138,50 @@ export default function Step1Location({ onConfirm }: Props) {
         </div>
       </div>
 
-      <button
-        onClick={handleUseLocation}
-        disabled={geoLoading}
-        className="w-full flex items-center justify-center gap-2 border border-[#3a3a3a] rounded-xl px-4 py-3 text-sm font-inter font-medium text-[#c8a97e] hover:border-[#c8a97e]/60 hover:bg-[#c8a97e]/5 transition-all disabled:opacity-50"
-      >
-        {geoLoading ? <Spinner /> : (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        )}
-        Usar mi ubicación
-      </button>
-
-      <Divider />
-
+      {/* Bloque dirección */}
       <div className="space-y-3">
-        <input
-          ref={inputRef}
-          type="text"
-          value={addressInput}
-          onChange={(e) => { setAddressInput(e.target.value); setError(null) }}
-          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-          placeholder="Ej: Av. Corrientes 1234, Buenos Aires"
-          className="w-full bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl px-4 py-3 text-sm font-inter text-white placeholder-[#444] focus:outline-none focus:border-[#c8a97e]/60 focus:ring-1 focus:ring-[#c8a97e]/30 transition-all"
-        />
+        <h3 className="font-syne text-lg font-bold text-white">¿Dónde te encuentro?</h3>
+        <p className="text-[#666] text-sm font-inter">Ingresá tu dirección en Mercedes</p>
 
-        {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
-      </div>
-
-      <div>
         <button
-          onClick={handleConfirm}
-          disabled={loading || !addressInput.trim()}
-          className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black font-semibold font-syne rounded-xl px-4 py-3 text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={handleUseLocation}
+          disabled={geoLoading}
+          className="w-full flex items-center justify-center gap-2 border border-[#3a3a3a] rounded-xl px-4 py-3 text-sm font-inter font-medium text-[#c8a97e] hover:border-[#c8a97e]/60 hover:bg-[#c8a97e]/5 transition-all disabled:opacity-50"
         >
-          {loading
-            ? <span className="flex items-center justify-center gap-2"><Spinner dark />Verificando…</span>
-            : 'Confirmar dirección'}
+          {geoLoading ? <Spinner /> : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          )}
+          Usar mi ubicación
         </button>
+
+        <Divider />
+
+        <div className="space-y-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={addressInput}
+            onChange={(e) => { setAddressInput(e.target.value); setError(null) }}
+            onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+            placeholder="Ej: Av. San Martín 1234"
+            className="w-full bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl px-4 py-3 text-sm font-inter text-white placeholder-[#444] focus:outline-none focus:border-[#c8a97e]/60 focus:ring-1 focus:ring-[#c8a97e]/30 transition-all"
+          />
+          {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
+        </div>
       </div>
+
+      <button
+        onClick={handleConfirm}
+        disabled={loading || !addressInput.trim()}
+        className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black font-semibold font-syne rounded-xl px-4 py-3 text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {loading
+          ? <span className="flex items-center justify-center gap-2"><Spinner dark />Verificando…</span>
+          : 'Confirmar dirección'}
+      </button>
     </div>
   )
 }
