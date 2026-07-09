@@ -120,6 +120,27 @@ export default function Step1Location({ onConfirm }: Props) {
         <p className="text-[#666] text-sm font-inter">Ingresá tu dirección o usá tu ubicación actual</p>
       </div>
 
+      <div className="space-y-2">
+        <p className="text-[#888] text-xs font-inter uppercase tracking-wide">¿Cuántas personas se cortan?</p>
+        <div className="flex gap-2">
+          {([1, 2, 3, 4] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPersons(n)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-inter font-medium transition-all"
+              style={
+                persons === n
+                  ? { background: '#c8a97e', color: '#000', fontWeight: 700 }
+                  : { background: '#191919', border: '1px solid #2a2a2a', color: '#ede9e1' }
+              }
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button
         onClick={handleUseLocation}
         disabled={geoLoading}
@@ -148,27 +169,6 @@ export default function Step1Location({ onConfirm }: Props) {
         />
 
         {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[#888] text-xs font-inter uppercase tracking-wide">¿Cuántas personas se cortan?</p>
-        <div className="flex gap-2">
-          {([1, 2, 3, 4] as const).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setPersons(n)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-inter font-medium transition-all"
-              style={
-                persons === n
-                  ? { background: '#c8a97e', color: '#000', fontWeight: 700 }
-                  : { background: '#191919', border: '1px solid #2a2a2a', color: '#ede9e1' }
-              }
-            >
-              {n}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div>
