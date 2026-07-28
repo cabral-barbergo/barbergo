@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       if (linkedErr) throw linkedErr
 
       const linkedIds = (linkedBookings ?? []).map((r: { id: string }) => r.id)
-      const allIds = [...new Set([...oldIds, ...linkedIds])]
+      const allIds = Array.from(new Set([...oldIds, ...linkedIds]))
 
       const { error: deleteErr, count } = await supabase
         .from('bookings')
