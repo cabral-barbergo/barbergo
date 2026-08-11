@@ -95,7 +95,7 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
     barberTimeInfo = booking.slot
   }
 
-  const CLIENT_CONFIRMATION_SID = 'HXdf5c9155df439d0c7af89ccb5829ca5c'
+  const CLIENT_CONFIRMATION_SID = 'HX55b41034b4e2701de25ba07cf0a15c4a'
   const formattedDate = booking.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')
 
   const barberMsg =
