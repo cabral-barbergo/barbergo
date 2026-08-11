@@ -1,7 +1,6 @@
 // notify v3
 import twilio from 'twilio'
 import type { Booking } from './types'
-import { SERVICES } from './constants'
 
 function twilioClient() {
   const sid   = process.env.TWILIO_ACCOUNT_SID
@@ -44,6 +43,22 @@ async function send(to: string, body: string): Promise<void> {
   console.log(`[notify] message sent sid=${msg.sid} to=${to} status=${msg.status}`)
 }
 
+async function sendTemplate(
+  to: string,
+  contentSid: string,
+  contentVariables: Record<string, string>
+): Promise<void> {
+  const from = fromNumber()
+  console.log(`[notify] sending template contentSid=${contentSid} to=${to} from=${from}`)
+  const msg = await twilioClient().messages.create({
+    from,
+    to,
+    contentSid,
+    contentVariables: JSON.stringify(contentVariables),
+  })
+  console.log(`[notify] template sent sid=${msg.sid} to=${to} status=${msg.status}`)
+}
+
 function logResults(label: string, tos: string[], results: PromiseSettledResult<void>[]): void {
   results.forEach((r, i) => {
     if (r.status === 'rejected') {
@@ -69,29 +84,19 @@ function addMinutesToSlot(slot: string, minutes: number): string {
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] START clientPhone:', JSON.stringify(booking.clientPhone), 'len:', booking.clientPhone?.length ?? 'undefined')
   console.log('[notify] PELUQUERO_PHONE:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
-  const service = SERVICES.find((s) => s.id === booking.serviceId)
-  const link    = `${process.env.NEXT_PUBLIC_URL}/turno/${booking.token}`
   const persons = booking.persons ?? 1
 
-  let timeInfo: string
   let barberTimeInfo: string
   if (persons > 1) {
     const slotsNeeded = personsToSlotsNeeded(persons)
     const slotFin = addMinutesToSlot(booking.slot, slotsNeeded * 30)
-    timeInfo = `Tu turno es para ${persons} personas, de ${booking.slot} a ${slotFin}`
     barberTimeInfo = `de ${booking.slot} a ${slotFin} (${persons} personas)`
   } else {
-    timeInfo = `🕐 Hora: ${booking.slot}`
     barberTimeInfo = booking.slot
   }
 
-  const clientMsg =
-    `¡Hola ${booking.clientName}! Tu turno está confirmado ✅\n\n` +
-    `📅 Fecha: ${booking.date}\n` +
-    `${persons > 1 ? `👥 ${timeInfo}` : timeInfo}\n` +
-    `✂️ Servicio: ${service?.label ?? booking.serviceId}\n` +
-    `📍 Dirección: ${booking.address}\n\n` +
-    `Podés gestionar tu turno acá:\n${link}`
+  const CLIENT_CONFIRMATION_SID = 'HXdf5c9155df439d0c7af89ccb5829ca5c'
+  const formattedDate = booking.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')
 
   const barberMsg =
     `Nuevo turno 📅\n` +
@@ -114,8 +119,23 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
 
   const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
   const tasks = barberTo
-    ? [send(clientTo, clientMsg), send(barberTo, barberMsg)]
-    : [send(clientTo, clientMsg)]
+    ? [
+        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, {
+          '1': booking.clientName,
+          '2': formattedDate,
+          '3': booking.slot,
+          '4': booking.address,
+        }),
+        send(barberTo, barberMsg),
+      ]
+    : [
+        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, {
+          '1': booking.clientName,
+          '2': formattedDate,
+          '3': booking.slot,
+          '4': booking.address,
+        }),
+      ]
 
   logResults('notifyBookingCreated', tos, await Promise.allSettled(tasks))
 }
