@@ -73,7 +73,7 @@ function logResults(label: string, tos: string[], results: PromiseSettledResult<
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] START clientPhone:', JSON.stringify(booking.clientPhone), 'len:', booking.clientPhone?.length ?? 'undefined')
   console.log('[notify] PELUQUERO_PHONE:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
-  const CLIENT_CONFIRMATION_SID = 'HX55b41034b4e2701de25ba07cf0a15c4a'
+  const CLIENT_CONFIRMATION_SID = 'HXd24a0841ff8d8e2416774a4a970ca107'
   const formattedDate = booking.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')
 
   const clientTo = toWA(booking.clientPhone)
@@ -93,6 +93,7 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
     '2': formattedDate,
     '3': booking.slot,
     '4': booking.address,
+    '5': booking.token,
   }
 
   const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
