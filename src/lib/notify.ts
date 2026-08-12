@@ -69,41 +69,12 @@ function logResults(label: string, tos: string[], results: PromiseSettledResult<
   })
 }
 
-function personsToSlotsNeeded(persons: number): number {
-  if (persons <= 1) return 1
-  if (persons <= 3) return 2
-  return 3
-}
-
-function addMinutesToSlot(slot: string, minutes: number): string {
-  const [h, m] = slot.split(':').map(Number)
-  const total = h * 60 + m + minutes
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
-}
 
 export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] START clientPhone:', JSON.stringify(booking.clientPhone), 'len:', booking.clientPhone?.length ?? 'undefined')
   console.log('[notify] PELUQUERO_PHONE:', process.env.PELUQUERO_PHONE ? 'set' : 'NOT SET')
-  const persons = booking.persons ?? 1
-
-  let barberTimeInfo: string
-  if (persons > 1) {
-    const slotsNeeded = personsToSlotsNeeded(persons)
-    const slotFin = addMinutesToSlot(booking.slot, slotsNeeded * 30)
-    barberTimeInfo = `de ${booking.slot} a ${slotFin} (${persons} personas)`
-  } else {
-    barberTimeInfo = booking.slot
-  }
-
   const CLIENT_CONFIRMATION_SID = 'HX55b41034b4e2701de25ba07cf0a15c4a'
   const formattedDate = booking.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')
-
-  const barberMsg =
-    `Nuevo turno 📅\n` +
-    `Cliente: ${booking.clientName}\n` +
-    `Tel: ${booking.clientPhone}\n` +
-    `Fecha: ${booking.date} ${barberTimeInfo}\n` +
-    `Dirección: ${booking.address}`
 
   const clientTo = toWA(booking.clientPhone)
   let barberTo: string
@@ -117,24 +88,21 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] clientTo (after toWA):', clientTo)
   console.log(`[notify] notifyBookingCreated client=${clientTo} barber=${barberTo}`)
 
+  const templateVars = {
+    '1': booking.clientName,
+    '2': formattedDate,
+    '3': booking.slot,
+    '4': booking.address,
+  }
+
   const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
   const tasks = barberTo
     ? [
-        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, {
-          '1': booking.clientName,
-          '2': formattedDate,
-          '3': booking.slot,
-          '4': booking.address,
-        }),
-        send(barberTo, barberMsg),
+        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, templateVars),
+        sendTemplate(barberTo, CLIENT_CONFIRMATION_SID, templateVars),
       ]
     : [
-        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, {
-          '1': booking.clientName,
-          '2': formattedDate,
-          '3': booking.slot,
-          '4': booking.address,
-        }),
+        sendTemplate(clientTo, CLIENT_CONFIRMATION_SID, templateVars),
       ]
 
   logResults('notifyBookingCreated', tos, await Promise.allSettled(tasks))
