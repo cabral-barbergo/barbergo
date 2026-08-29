@@ -85,7 +85,14 @@ export function canJoinBlock(
     return newSlotIdx === min - 1 || newSlotIdx === max + 1
   })
 
-  if (adjacentGroups.length === 0) return { ok: true }
+  if (adjacentGroups.length === 0) {
+    const nearAnyBookingInBlock = blockBookings.some(
+      (b) => haversine(newLat, newLon, b.lat, b.lon) <= PROXIMITY_MAX_KM
+    )
+    return nearAnyBookingInBlock
+      ? { ok: false, reason: 'not_adjacent' }
+      : { ok: true }
+  }
 
   // Check distance against all bookings in the adjacent groups
   const adjacentGroupIndices = new Set<number>(adjacentGroups.flat())
