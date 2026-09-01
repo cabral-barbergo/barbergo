@@ -39,8 +39,13 @@ function toWA(phone: string): string {
 async function send(to: string, body: string): Promise<void> {
   const from = fromNumber()
   console.log(`[notify] sending to=${to} from=${from}`)
-  const msg = await twilioClient().messages.create({ from, to, body })
-  console.log(`[notify] message sent sid=${msg.sid} to=${to} status=${msg.status}`)
+  try {
+    const msg = await twilioClient().messages.create({ from, to, body })
+    console.log(`[notify] message sent sid=${msg.sid} to=${to} status=${msg.status}`)
+  } catch (err) {
+    console.error('[notify] SEND FAILED', JSON.stringify(err, Object.getOwnPropertyNames(err as object)))
+    throw err
+  }
 }
 
 async function sendTemplate(
@@ -49,14 +54,20 @@ async function sendTemplate(
   contentVariables: Record<string, string>
 ): Promise<void> {
   const from = fromNumber()
-  console.log(`[notify] sending template contentSid=${contentSid} to=${to} from=${from}`)
-  const msg = await twilioClient().messages.create({
-    from,
-    to,
-    contentSid,
-    contentVariables: JSON.stringify(contentVariables),
-  })
-  console.log(`[notify] template sent sid=${msg.sid} to=${to} status=${msg.status}`)
+  const cvJson = JSON.stringify(contentVariables)
+  console.log(`[notify] about to send template`, { to, contentSid, contentVariables: cvJson })
+  try {
+    const msg = await twilioClient().messages.create({
+      from,
+      to,
+      contentSid,
+      contentVariables: cvJson,
+    })
+    console.log(`[notify] template sent OK sid=${msg.sid} to=${to} status=${msg.status}`)
+  } catch (err) {
+    console.error('[notify] SEND TEMPLATE FAILED', JSON.stringify(err, Object.getOwnPropertyNames(err as object)))
+    throw err
+  }
 }
 
 function logResults(label: string, tos: string[], results: PromiseSettledResult<void>[]): void {
@@ -89,6 +100,15 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
   console.log('[notify] clientTo (after toWA):', clientTo)
   console.log(`[notify] notifyBookingCreated client=${clientTo} barber=${barberTo}`)
 
+  console.log('[notify] PRE-clientVars booking:', JSON.stringify({
+    id: booking.id,
+    token: booking.token,
+    address: booking.address,
+    slot: booking.slot,
+    persons: booking.persons,
+    clientPhone: booking.clientPhone,
+  }))
+
   const clientVars = {
     '1': booking.clientName,
     '2': formattedDate,
@@ -102,6 +122,9 @@ export async function notifyBookingCreated(booking: Booking): Promise<void> {
     '3': booking.slot,
     '4': booking.address,
   }
+
+  console.log('[notify] clientVars:', JSON.stringify(clientVars))
+  console.log('[notify] barberVars:', JSON.stringify(barberVars))
 
   const tos   = barberTo ? [clientTo, barberTo] : [clientTo]
   const tasks = barberTo
