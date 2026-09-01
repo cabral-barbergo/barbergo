@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 
 export const ADMIN_COOKIE  = 'admin-auth'
-export const COOKIE_MAX_AGE = 8 * 60 * 60 // 8 h in seconds
+export const COOKIE_MAX_AGE = 5 * 24 * 60 * 60 // 5 days in seconds
 
 /** Deterministic cookie value derived from the secret (Node.js runtime). */
 export function expectedCookieValue(): string {
