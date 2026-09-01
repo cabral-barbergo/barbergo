@@ -20,19 +20,35 @@ function markerSvg(n: number, highlight = false): string {
 }
 
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry',               stylers: [{ color: '#1e1e1e' }] },
-  { elementType: 'labels.text.fill',       stylers: [{ color: '#888' }] },
-  { elementType: 'labels.text.stroke',     stylers: [{ color: '#1e1e1e' }] },
+  // geometry base
+  { elementType: 'geometry', stylers: [{ color: '#1e1e1e' }] },
+  // global label default — covers any featureType not listed below
+  { elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  // roads
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e2e' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'road', elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
   { featureType: 'road', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a3a' }] },
-  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'road.highway', elementType: 'geometry',           stylers: [{ color: '#3a3a3a' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
   { featureType: 'road.highway', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1626' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3d4b5e' }] },
-  { featureType: 'poi',     stylers: [{ visibility: 'off' }] },
+  // administrative (neighborhoods, localities)
+  { featureType: 'administrative.locality',     elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'administrative.locality',     elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'administrative.neighborhood', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  // poi — hidden but labels white in case visibility is re-enabled
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'poi', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  // transit — hidden but labels white in case visibility is re-enabled
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', elementType: 'labels.text.fill',   stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'transit', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  // water
+  { featureType: 'water', elementType: 'geometry',           stylers: [{ color: '#0e1626' }] },
+  { featureType: 'water', elementType: 'labels.text.fill',   stylers: [{ color: '#3d4b5e' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
 ]
 
 export default function RouteMap({ bookings }: Props) {
