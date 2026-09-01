@@ -40,6 +40,7 @@ export default function TurnoPage() {
   const [showModal, setShowModal] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [precioCorte, setPrecioCorte] = useState<number | null>(null)
 
   useEffect(() => {
     fetch(`/api/bookings/${token}`)
@@ -51,6 +52,15 @@ export default function TurnoPage() {
       })
       .catch(() => setPhase('not-found'))
   }, [token])
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then((r) => r.json())
+      .then((data: { precio_corte?: number }) => {
+        if (typeof data.precio_corte === 'number') setPrecioCorte(data.precio_corte)
+      })
+      .catch(() => {})
+  }, [])
 
   async function handleCancel() {
     setCancelling(true)
@@ -113,8 +123,9 @@ export default function TurnoPage() {
   // active
   if (!booking) return null
 
-  const service      = SERVICES.find((s) => s.id === booking.serviceId)
-  const tooLate      = isWithin2Hours(booking.date, booking.slot)
+  const service   = SERVICES.find((s) => s.id === booking.serviceId)
+  const tooLate   = isWithin2Hours(booking.date, booking.slot)
+  const totalPrice = precioCorte !== null ? precioCorte * (booking.persons ?? 1) : null
 
   return (
     <Shell>
@@ -141,7 +152,7 @@ export default function TurnoPage() {
           <DetailRow icon="🕐" label="Horario"   value={booking.slot} />
           {service && (
             <DetailRow icon={service.icon} label="Servicio"
-              value={`${service.label} · ${service.duration} min · $${service.price.toLocaleString('es-AR')}`}
+              value={`${service.label} · ${service.duration} min${totalPrice !== null ? ` · $${totalPrice.toLocaleString('es-AR')}` : ''}`}
             />
           )}
           <DetailRow icon="📍" label="Dirección" value={booking.address} />
