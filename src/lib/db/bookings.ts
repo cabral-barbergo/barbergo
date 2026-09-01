@@ -136,6 +136,12 @@ export async function cancelBookingById(id: string): Promise<void> {
     .update({ status: 'cancelled' })
     .eq('id', id)
   if (error) throw error
+
+  const { error: linkedError } = await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('linked_to', id)
+  if (linkedError) throw linkedError
 }
 
 export async function getBookingByToken(token: string): Promise<Booking | null> {
@@ -179,11 +185,24 @@ export async function createBooking(
 }
 
 export async function cancelBooking(token: string): Promise<void> {
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('token', token)
+    .single()
+  if (fetchError) throw fetchError
+
   const { error } = await supabase
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('token', token)
   if (error) throw error
+
+  const { error: linkedError } = await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('linked_to', (booking as { id: string }).id)
+  if (linkedError) throw linkedError
 }
 
 export async function getAvailability(): Promise<Availability[]> {
