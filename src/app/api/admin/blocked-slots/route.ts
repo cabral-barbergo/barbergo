@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAdminAuthorized, csrfCheck } from '@/lib/adminAuth'
-import { getBlockedSlots, blockSlot, unblockSlot } from '@/lib/db/bookings'
+import { getBlockedSlotsWithReasons, blockSlot, unblockSlot } from '@/lib/db/bookings'
 
 export async function GET(request: Request) {
   if (!isAdminAuthorized(request)) {
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const slots = await getBlockedSlots(date)
+    const slots = await getBlockedSlotsWithReasons(date)
     return NextResponse.json(slots)
   } catch (err) {
     console.error('[admin/blocked-slots GET]', err)

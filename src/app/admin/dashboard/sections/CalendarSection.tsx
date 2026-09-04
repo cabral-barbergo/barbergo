@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { Plus, Trash2, Check, X, User, MapPin, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Check, X, User, MapPin, GripVertical, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import type { Booking } from '@/lib/types'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
@@ -26,6 +26,11 @@ interface SlotState {
 interface DaySlotData {
   dayOfWeek: number
   slots: SlotState[]
+}
+
+interface BlockedSlot {
+  slot: string
+  reason: string | null
 }
 
 // ── date utilities ────────────────────────────────────────────────
@@ -105,6 +110,181 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lon: numb
     if (res.ok && data.lat) return { lat: data.lat, lon: data.lon, formattedAddress: data.formattedAddress }
   } catch {}
   return null
+}
+
+// ── action picker modal ───────────────────────────────────────────
+
+interface ActionPickerProps {
+  date: string
+  slot: string
+  onClose: () => void
+  onCreateBooking: () => void
+  onBlockSlot: () => void
+}
+
+function ActionPickerModal({ date, slot, onClose, onCreateBooking, onBlockSlot }: ActionPickerProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-sm space-y-4">
+        <div>
+          <p className="font-syne font-bold text-white text-base">¿Qué querés hacer?</p>
+          <p className="text-[#555] text-xs font-inter mt-0.5">{date} · {slot}</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onCreateBooking}
+            className="w-full bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-3 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={16} />Crear reserva
+          </button>
+          <button
+            onClick={onBlockSlot}
+            className="w-full bg-[#1a1a1a] hover:bg-[#222] border border-red-500/30 text-red-400 hover:text-red-300 text-sm font-inter rounded-xl py-3 transition-all flex items-center justify-center gap-2"
+          >
+            <Lock size={14} />Bloquear horario
+          </button>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full text-[#555] hover:text-white text-xs font-inter transition-colors py-1"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── block slot modal ──────────────────────────────────────────────
+
+interface BlockSlotModalProps {
+  date: string
+  slot: string
+  onClose: () => void
+  onBlocked: () => void
+}
+
+function BlockSlotModal({ date, slot, onClose, onBlocked }: BlockSlotModalProps) {
+  const [reason,     setReason]     = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+
+  async function handleBlock() {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/blocked-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, slot, reason: reason.trim() || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Error al bloquear'); setSubmitting(false); return }
+      onBlocked()
+      onClose()
+    } catch {
+      setError('Error de red')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-sm space-y-4">
+        <div>
+          <p className="font-syne font-bold text-white text-base">Bloquear horario</p>
+          <p className="text-[#555] text-xs font-inter mt-0.5">{date} · {slot}</p>
+        </div>
+        <div>
+          <label className="text-[#888] text-xs font-inter mb-1 block">Motivo (opcional)</label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleBlock()}
+            placeholder="Almuerzo, Personal…"
+            autoFocus
+            className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm font-inter text-white focus:outline-none focus:border-red-500/60"
+          />
+        </div>
+        {error && <p className="text-red-400 text-xs font-inter">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            <X size={14} />Cancelar
+          </button>
+          <button
+            onClick={handleBlock}
+            disabled={submitting}
+            className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            <Lock size={14} />{submitting ? 'Bloqueando…' : 'Bloquear'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── unblock confirm modal ─────────────────────────────────────────
+
+interface UnblockModalProps {
+  date: string
+  slot: string
+  reason: string | null
+  onClose: () => void
+  onUnblocked: () => void
+}
+
+function UnblockModal({ date, slot, reason, onClose, onUnblocked }: UnblockModalProps) {
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleUnblock() {
+    setSubmitting(true)
+    try {
+      await fetch('/api/admin/blocked-slots', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, slot }),
+      })
+      onUnblocked()
+      onClose()
+    } catch {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-sm space-y-3">
+        <div>
+          <p className="font-syne font-bold text-white text-base">¿Liberar este horario?</p>
+          <p className="text-[#555] text-xs font-inter mt-0.5">
+            {date} · {slot}{reason ? ` · ${reason}` : ''}
+          </p>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-[#888] text-sm font-inter rounded-xl py-2.5 transition-all disabled:opacity-50"
+          >
+            No
+          </button>
+          <button
+            onClick={handleUnblock}
+            disabled={submitting}
+            className="flex-1 bg-[#c8a97e] hover:bg-[#dfc4a1] text-black text-sm font-bold font-syne rounded-xl py-2.5 transition-all disabled:opacity-50"
+          >
+            {submitting ? '…' : 'Sí, liberar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── add booking modal ─────────────────────────────────────────────
@@ -444,6 +624,44 @@ function LinkedContinuationCell({ compact }: { compact?: boolean }) {
   )
 }
 
+// ── blocked slot cell ─────────────────────────────────────────────
+
+interface BlockedSlotCellProps {
+  reason: string | null
+  onUnblock: () => void
+  compact?: boolean
+}
+
+function BlockedSlotCell({ reason, onUnblock, compact }: BlockedSlotCellProps) {
+  return (
+    <button
+      onClick={onUnblock}
+      className={[
+        'w-full rounded-lg font-inter text-left transition-all hover:brightness-125',
+        compact ? 'px-2 py-1 text-xs' : 'px-3 py-2',
+      ].join(' ')}
+      style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)' }}
+    >
+      {compact ? (
+        <span className="flex items-center gap-1 min-w-0 truncate text-red-500">
+          <Lock size={10} className="shrink-0" />
+          <span className="truncate">Bloqueado</span>
+        </span>
+      ) : (
+        <>
+          <span className="flex items-center gap-1.5 text-red-500 font-semibold text-sm">
+            <Lock size={12} className="shrink-0" />
+            Bloqueado
+          </span>
+          {reason && (
+            <span className="block text-red-400/50 text-xs mt-0.5 truncate">{reason}</span>
+          )}
+        </>
+      )}
+    </button>
+  )
+}
+
 // ── droppable empty slot ──────────────────────────────────────────
 
 interface DroppableEmptySlotProps {
@@ -481,14 +699,19 @@ function DroppableEmptySlot({ date, slot, onAdd, compact }: DroppableEmptySlotPr
 
 interface SlotCellProps {
   booking?: Booking
+  blocked?: BlockedSlot | null
   onAdd: () => void
   onEdit: () => void
+  onUnblock: () => void
   compact?: boolean
   date: string
   slot: string
 }
 
-function SlotCell({ booking, onAdd, onEdit, compact, date, slot }: SlotCellProps) {
+function SlotCell({ booking, blocked, onAdd, onEdit, onUnblock, compact, date, slot }: SlotCellProps) {
+  if (blocked) {
+    return <BlockedSlotCell reason={blocked.reason} onUnblock={onUnblock} compact={compact} />
+  }
   if (booking) {
     if (booking.linkedTo) {
       return <LinkedContinuationCell compact={compact} />
@@ -504,11 +727,13 @@ interface DayViewProps {
   date: string
   slots: SlotState[]
   bookings: Booking[]
+  blockedSlots: BlockedSlot[]
   onAdd: (slot: string) => void
   onEdit: (booking: Booking) => void
+  onUnblock: (slot: string, reason: string | null) => void
 }
 
-function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
+function DayView({ date, slots, bookings, blockedSlots, onAdd, onEdit, onUnblock }: DayViewProps) {
   const active = slots.filter((s) => s.isActive)
   if (active.length === 0) {
     return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin slots activos para este día.</div>
@@ -521,14 +746,17 @@ function DayView({ date, slots, bookings, onAdd, onEdit }: DayViewProps) {
     <div className="space-y-1.5 max-w-sm">
       {active.map((s) => {
         const booking = bookings.find((b) => b.slot === s.slot)
+        const blocked = blockedSlots.find((b) => b.slot === s.slot) ?? null
         return (
           <div key={s.slot} className="flex items-center gap-3">
             <span className="text-[#ede9e1] text-xs font-mono w-11 shrink-0">{s.slot}</span>
             <div className="flex-1">
               <SlotCell
                 booking={booking}
+                blocked={blocked}
                 onAdd={() => onAdd(s.slot)}
                 onEdit={() => booking && onEdit(booking)}
+                onUnblock={() => onUnblock(s.slot, blocked?.reason ?? null)}
                 date={date}
                 slot={s.slot}
               />
@@ -546,11 +774,13 @@ interface WeekViewProps {
   dates: string[]
   slotsData: DaySlotData[]
   bookingsByDate: Record<string, Booking[]>
+  blockedByDate: Record<string, BlockedSlot[]>
   onAdd: (date: string, slot: string) => void
   onEdit: (booking: Booking) => void
+  onUnblock: (date: string, slot: string, reason: string | null) => void
 }
 
-function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewProps) {
+function WeekView({ dates, slotsData, bookingsByDate, blockedByDate, onAdd, onEdit, onUnblock }: WeekViewProps) {
   const todayISO = toLocalISO(new Date())
   const slotSet = new Set<string>()
   for (const date of dates) {
@@ -600,13 +830,16 @@ function WeekView({ dates, slotsData, bookingsByDate, onAdd, onEdit }: WeekViewP
                 const dayData   = slotsData.find((d) => d.dayOfWeek === dayOfWeek)
                 const isActive  = dayData?.slots.find((s) => s.slot === time)?.isActive
                 const booking   = bookingsByDate[date]?.find((b) => b.slot === time)
+                const blocked   = (blockedByDate[date] ?? []).find((b) => b.slot === time) ?? null
                 return (
                   <td key={date} className="px-1 py-1">
                     {isActive ? (
                       <SlotCell
                         booking={booking}
+                        blocked={blocked}
                         onAdd={() => onAdd(date, time)}
                         onEdit={() => booking && onEdit(booking)}
+                        onUnblock={() => onUnblock(date, time, blocked?.reason ?? null)}
                         compact
                         date={date}
                         slot={time}
@@ -659,7 +892,11 @@ export default function CalendarSection() {
   const [slotsData,      setSlotsData]      = useState<DaySlotData[]>([])
   const [loadingSlots,   setLoadingSlots]   = useState(true)
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, Booking[]>>({})
+  const [blockedByDate,  setBlockedByDate]  = useState<Record<string, BlockedSlot[]>>({})
+  const [actionPicker,   setActionPicker]   = useState<{ date: string; slot: string } | null>(null)
   const [addModal,       setAddModal]       = useState<{ date: string; slot: string } | null>(null)
+  const [blockModal,     setBlockModal]     = useState<{ date: string; slot: string } | null>(null)
+  const [unblockModal,   setUnblockModal]   = useState<{ date: string; slot: string; reason: string | null } | null>(null)
   const [editBooking,    setEditBooking]    = useState<Booking | null>(null)
   const [dropError,      setDropError]      = useState<string | null>(null)
   const [activeBooking,  setActiveBooking]  = useState<Booking | null>(null)
@@ -691,12 +928,18 @@ export default function CalendarSection() {
     if (toFetch.length === 0) return
     const results = await Promise.all(
       toFetch.map(async (date) => {
-        try {
-          const res  = await fetch(`/api/admin/bookings?date=${date}`)
-          const json = await res.json()
-          return { date, bookings: (json.bookings ?? []) as Booking[] }
-        } catch {
-          return { date, bookings: [] as Booking[] }
+        const [bookingsData, blockedData] = await Promise.all([
+          fetch(`/api/admin/bookings?date=${date}`)
+            .then((r) => r.json())
+            .catch(() => ({ bookings: [] })),
+          fetch(`/api/admin/blocked-slots?date=${date}`)
+            .then((r) => r.json())
+            .catch(() => []),
+        ])
+        return {
+          date,
+          bookings: (bookingsData.bookings ?? []) as Booking[],
+          blocked: (Array.isArray(blockedData) ? blockedData : []) as BlockedSlot[],
         }
       })
     )
@@ -704,6 +947,11 @@ export default function CalendarSection() {
     setBookingsByDate((prev) => {
       const next = { ...prev }
       for (const { date, bookings } of results) next[date] = bookings
+      return next
+    })
+    setBlockedByDate((prev) => {
+      const next = { ...prev }
+      for (const { date, blocked } of results) next[date] = blocked
       return next
     })
   }
@@ -861,16 +1109,19 @@ export default function CalendarSection() {
           {view === 'day' && (() => {
             const date = visibleDates[0]
             if (!date) return <div className="text-center py-12 text-[#444] text-sm font-inter">Sin turnos los domingos.</div>
-            const dayDow   = dow(new Date(date + 'T12:00:00'))
-            const slots    = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
-            const bookings = bookingsByDate[date] ?? []
+            const dayDow      = dow(new Date(date + 'T12:00:00'))
+            const slots       = slotsData.find((ds) => ds.dayOfWeek === dayDow)?.slots ?? []
+            const bookings    = bookingsByDate[date] ?? []
+            const blockedSlots = blockedByDate[date] ?? []
             return (
               <DayView
                 date={date}
                 slots={slots}
                 bookings={bookings}
-                onAdd={(slot) => setAddModal({ date, slot })}
+                blockedSlots={blockedSlots}
+                onAdd={(slot) => setActionPicker({ date, slot })}
                 onEdit={(booking) => setEditBooking(booking)}
+                onUnblock={(slot, reason) => setUnblockModal({ date, slot, reason })}
               />
             )
           })()}
@@ -880,13 +1131,26 @@ export default function CalendarSection() {
               dates={weekDates}
               slotsData={slotsData}
               bookingsByDate={bookingsByDate}
-              onAdd={(date, slot) => setAddModal({ date, slot })}
+              blockedByDate={blockedByDate}
+              onAdd={(date, slot) => setActionPicker({ date, slot })}
               onEdit={(booking) => setEditBooking(booking)}
+              onUnblock={(date, slot, reason) => setUnblockModal({ date, slot, reason })}
             />
           )}
         </div>
 
-        {/* Add modal */}
+        {/* Action picker modal */}
+        {actionPicker && (
+          <ActionPickerModal
+            date={actionPicker.date}
+            slot={actionPicker.slot}
+            onClose={() => setActionPicker(null)}
+            onCreateBooking={() => { setAddModal(actionPicker); setActionPicker(null) }}
+            onBlockSlot={() => { setBlockModal(actionPicker); setActionPicker(null) }}
+          />
+        )}
+
+        {/* Add booking modal */}
         {addModal && (
           <AddModal
             date={addModal.date}
@@ -896,7 +1160,28 @@ export default function CalendarSection() {
           />
         )}
 
-        {/* Edit modal */}
+        {/* Block slot modal */}
+        {blockModal && (
+          <BlockSlotModal
+            date={blockModal.date}
+            slot={blockModal.slot}
+            onClose={() => setBlockModal(null)}
+            onBlocked={() => refreshDate(blockModal.date)}
+          />
+        )}
+
+        {/* Unblock confirm modal */}
+        {unblockModal && (
+          <UnblockModal
+            date={unblockModal.date}
+            slot={unblockModal.slot}
+            reason={unblockModal.reason}
+            onClose={() => setUnblockModal(null)}
+            onUnblocked={() => refreshDate(unblockModal.date)}
+          />
+        )}
+
+        {/* Edit booking modal */}
         {editBooking && (
           <EditModal
             booking={editBooking}

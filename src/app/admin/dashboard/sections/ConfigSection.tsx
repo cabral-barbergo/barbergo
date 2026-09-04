@@ -122,10 +122,10 @@ function BlockSlotsTab() {
         fetch(`/api/admin/blocked-slots?date=${d}`, { cache: 'no-store' }),
       ])
       const avData: DayConfig[] = await avRes.json()
-      const blData: string[] = await blRes.json()
+      const blData: { slot: string; reason: string | null }[] = await blRes.json()
       const dayData = avData.find((x) => x.dayOfWeek === appDay)
       setActiveSlots(dayData?.slots.filter((s) => s.isActive).map((s) => s.slot) ?? [])
-      setBlockedSlots(blData)
+      setBlockedSlots(blData.map((r) => r.slot))
     } catch {
       setError('Error al cargar')
     } finally {

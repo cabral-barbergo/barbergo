@@ -322,6 +322,18 @@ export async function getBlockedSlots(date: string): Promise<string[]> {
   return (data as { slot: string }[]).map((r) => (r.slot || '').toString().substring(0, 5))
 }
 
+export async function getBlockedSlotsWithReasons(date: string): Promise<{ slot: string; reason: string | null }[]> {
+  const { data, error } = await supabase
+    .from('blocked_slots')
+    .select('slot, reason')
+    .eq('date', date)
+  if (error) throw error
+  return (data as { slot: string; reason: string | null }[]).map((r) => ({
+    slot: (r.slot || '').toString().substring(0, 5),
+    reason: r.reason ?? null,
+  }))
+}
+
 export async function blockSlot(date: string, slot: string, reason?: string): Promise<void> {
   const { error } = await supabase
     .from('blocked_slots')
