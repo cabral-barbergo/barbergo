@@ -1,18 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
-import { MapPin, CalendarDays, Settings, LogOut } from 'lucide-react'
+import { MapPin, CalendarDays, Settings, LogOut, BarChart3 } from 'lucide-react'
 import BarberGoLogo from '@/components/BarberGoLogo'
-import AgendaSection       from './sections/AgendaSection'
-import CalendarSection     from './sections/CalendarSection'
-import ConfigGroupSection  from './sections/ConfigGroupSection'
+import AgendaSection      from './sections/AgendaSection'
+import CalendarSection    from './sections/CalendarSection'
+import ConfigGroupSection from './sections/ConfigGroupSection'
+import StatsSection       from './sections/StatsSection'
 
-type Tab = 'ruta' | 'agenda' | 'configuracion'
+type Tab = 'ruta' | 'agenda' | 'estadisticas' | 'configuracion'
+
+const NAV_ITEMS: { id: Tab; label: string; Icon: ElementType }[] = [
+  { id: 'agenda',        label: 'Agenda',        Icon: CalendarDays },
+  { id: 'ruta',          label: 'Ruta',          Icon: MapPin },
+  { id: 'estadisticas',  label: 'Estadísticas',  Icon: BarChart3 },
+  { id: 'configuracion', label: 'Configuración', Icon: Settings },
+]
 
 export default function AdminDashboard() {
-  const router     = useRouter()
-  const [tab, setTab]           = useState<Tab>('ruta')
+  const router = useRouter()
+  const [tab,        setTab]        = useState<Tab>('ruta')
   const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleLogout() {
@@ -40,13 +48,9 @@ export default function AdminDashboard() {
         </button>
       </header>
 
-      {/* Desktop tab nav — hidden on mobile */}
+      {/* Desktop tab nav */}
       <div className="hidden md:flex border-b border-[#1a1a1a] px-4 sm:px-8 gap-1">
-        {([
-          { id: 'ruta'          as Tab, label: 'Ruta',          Icon: MapPin },
-          { id: 'agenda'        as Tab, label: 'Agenda',        Icon: CalendarDays },
-          { id: 'configuracion' as Tab, label: 'Configuración', Icon: Settings },
-        ]).map(({ id, label, Icon }) => (
+        {NAV_ITEMS.map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -67,42 +71,52 @@ export default function AdminDashboard() {
       <div className="flex-1 px-4 sm:px-8 py-7 max-w-7xl mx-auto w-full pb-24 md:pb-7">
         {tab === 'ruta'          && <AgendaSection />}
         {tab === 'agenda'        && <CalendarSection />}
+        {tab === 'estadisticas'  && <StatsSection />}
         {tab === 'configuracion' && <ConfigGroupSection />}
       </div>
 
-      {/* Mobile bottom nav — visible only on mobile/tablet */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-[#222] h-16 flex items-center justify-around px-2">
-        {/* Ruta */}
-        <button
-          onClick={() => setTab('ruta')}
-          className="flex flex-col items-center gap-0.5 px-4"
-        >
-          <MapPin size={20} className={tab === 'ruta' ? 'text-[#c8a97e]' : 'text-[#666]'} />
-          <span className={`text-[10px] font-inter ${tab === 'ruta' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Ruta</span>
-        </button>
-
-        {/* Agenda — elevated center button */}
-        <button
-          onClick={() => setTab('agenda')}
-          className="flex flex-col items-center -mt-5"
-        >
-          <span className={[
-            'w-[52px] h-[52px] rounded-full flex items-center justify-center shadow-lg transition-all',
-            tab === 'agenda' ? 'bg-[#c8a97e]' : 'bg-[#1a1a1a] border border-[#2a2a2a]',
-          ].join(' ')}>
-            <CalendarDays size={22} className={tab === 'agenda' ? 'text-black' : 'text-[#666]'} />
-          </span>
-          <span className={`text-[10px] font-inter mt-0.5 ${tab === 'agenda' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Agenda</span>
-        </button>
-
-        {/* Config */}
-        <button
-          onClick={() => setTab('configuracion')}
-          className="flex flex-col items-center gap-0.5 px-4"
-        >
-          <Settings size={20} className={tab === 'configuracion' ? 'text-[#c8a97e]' : 'text-[#666]'} />
-          <span className={`text-[10px] font-inter ${tab === 'configuracion' ? 'text-[#c8a97e]' : 'text-[#666]'}`}>Config</span>
-        </button>
+      {/* Mobile/tablet bottom nav — 4-item pill nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-[#222] h-16 flex items-center justify-around px-3">
+        {NAV_ITEMS.map(({ id, label, Icon }) => {
+          const isActive = tab === id
+          return (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              style={{
+                maxWidth: isActive ? '160px' : '40px',
+                minWidth: '40px',
+                padding: isActive ? '0 14px' : '0',
+                transition: 'max-width 220ms ease, padding 220ms ease, background-color 150ms ease',
+              }}
+              className={[
+                'flex items-center justify-center gap-2 h-10 rounded-full overflow-hidden',
+                isActive ? 'bg-[#c8a97e]' : 'bg-transparent',
+              ].join(' ')}
+              aria-label={label}
+            >
+              <Icon
+                size={20}
+                style={{ color: isActive ? '#000' : '#666', flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  opacity: isActive ? 1 : 0,
+                  maxWidth: isActive ? '120px' : '0',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  color: '#000',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-inter, sans-serif)',
+                  transition: 'opacity 150ms ease 60ms, max-width 200ms ease',
+                }}
+              >
+                {label}
+              </span>
+            </button>
+          )
+        })}
       </nav>
     </div>
   )
