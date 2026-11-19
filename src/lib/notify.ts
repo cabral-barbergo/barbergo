@@ -1,6 +1,7 @@
 // notify v3
 import twilio from 'twilio'
 import type { Booking } from './types'
+import { toWhatsApp, isValidArMobile } from './phone'
 
 function twilioClient() {
   const sid   = process.env.TWILIO_ACCOUNT_SID
@@ -25,15 +26,13 @@ function barberNumber(): string {
   return withWAPrefix(b)
 }
 
-// Normaliza número argentino → whatsapp:+549XXXXXXXXXX
+// Normaliza número argentino → whatsapp:+549XXXXXXXXXX (ver lib/phone.ts)
 function toWA(phone: string): string {
-  const digits = phone.replace(/[\s\-().+]/g, '')
-  let e164: string
-  if      (digits.startsWith('549')) e164 = `+${digits}`
-  else if (digits.startsWith('54'))  e164 = `+549${digits.slice(2)}`
-  else if (digits.startsWith('0'))   e164 = `+549${digits.slice(1)}`
-  else                               e164 = `+549${digits}`
-  return `whatsapp:${e164}`
+  const wa = toWhatsApp(phone)
+  if (!isValidArMobile(wa.replace('whatsapp:', ''))) {
+    console.warn(`[notify] phone looks invalid after normalization: ${wa}`)
+  }
+  return wa
 }
 
 async function send(to: string, body: string): Promise<void> {
