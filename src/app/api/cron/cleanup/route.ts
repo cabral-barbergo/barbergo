@@ -9,8 +9,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Retention: keep ~10 years of bookings so the admin stats (week/month and
+    // period-over-period comparison) have history. Storage is negligible
+    // (~0.5 KB/row, a few thousand rows per year).
+    const RETENTION_DAYS = 3650
     const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 30)
+    cutoff.setDate(cutoff.getDate() - RETENTION_DAYS)
     const cutoffStr = cutoff.toISOString().split('T')[0]
 
     // Find old primary bookings (persons > 0 or persons is null = single booking)
